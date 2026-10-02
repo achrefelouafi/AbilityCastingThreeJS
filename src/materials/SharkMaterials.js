@@ -1,5 +1,6 @@
 import { Color, DoubleSide, MeshStandardMaterial, NormalBlending, ShaderMaterial, Vector3, Vector4 } from 'three';
 import { noiseGLSL } from '../shaders/lib/noise.glsl.js';
+import { commonGLSL } from '../shaders/lib/common.glsl.js';
 import { frame, sharedUniforms } from '../core/FrameUniforms.js';
 import { settings } from '../config/settings.js';
 import { getColor } from '../utils/color.js';
@@ -395,9 +396,12 @@ export function createPortalMaterial() {
 
 const WARP_VERTEX = /* glsl */ `
   varying vec2 vUv;
+  varying float vViewZ;
   void main() {
     vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    vec4 view = modelViewMatrix * vec4(position, 1.0);
+    vViewZ = view.z;
+    gl_Position = projectionMatrix * view;
   }
 `;
 
@@ -406,6 +410,15 @@ const WARP_VERTEX = /* glsl */ `
  * R,G the offset around 0.5, B the strength, A the coverage. A floor quad, not
  * a card, so it bends exactly the pixels the water covers, off the same field
  * the surface is shaded with.
+ *
+ * **Occluded by what stands in front of it.** The distortion pass draws into a
+ * buffer of its own with no scene depth, so left to itself the water would
+ * bend every pixel in its footprint — including the shark rearing out of it,
+ * whose flank in front of the surface came out rippled like it was under it.
+ * The opaque prepass (`uSceneDepth`) has the shark in it, so wherever solid
+ * geometry is clearly nearer than the water the offset is dropped. The floor
+ * itself is in that prepass too, a centimetre *behind* the quad, which is why
+ * the test needs a margin rather than a plain comparison.
  */
 const WARP_FRAGMENT = /* glsl */ `
   uniform float uTime;
@@ -419,9 +432,15 @@ const WARP_FRAGMENT = /* glsl */ `
   uniform float uStrength;
   uniform float uSeed;
   uniform float uShaderIntensity;
+  uniform sampler2D uSceneDepth;
+  uniform vec2  uResolution;
+  uniform float uCameraNear;
+  uniform float uCameraFar;
   varying vec2 vUv;
+  varying float vViewZ;
 
   ${noiseGLSL}
+  ${commonGLSL}
   ${WATER_GLSL}
 
   void main() {
@@ -429,6 +448,12 @@ const WARP_FRAGMENT = /* glsl */ `
     float rad = length(p);
     float mask = smoothstep(uRadius * 1.04, uRadius * 0.8, rad);
     if (mask < 0.004 || uRadius < 0.01) discard;
+
+    // Something solid in front of the water: leave its pixels alone.
+    float packed = unpackRGBAToDepth(texture2D(uSceneDepth, gl_FragCoord.xy / uResolution));
+    float sceneZ = perspectiveDepthToViewZ(packed, uCameraNear, uCameraFar);
+    mask *= 1.0 - smoothstep(0.04, 0.12, sceneZ - vViewZ);
+    if (mask < 0.004) discard;
     vec2 sp = swWind(p, rad, uRadius, uSpin);
     float nx = snoise(vec3(sp * uScale, uTime * uSpeed + uSeed));
     float ny = snoise(vec3(sp * uScale + vec2(23.1, 7.9), uTime * uSpeed + uSeed + 5.0));
