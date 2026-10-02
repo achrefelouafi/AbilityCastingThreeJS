@@ -1,0 +1,356 @@
+/*
+ * The phone page. One column, thumb-sized controls, and the same palette as
+ * the sandbox's HUD so it reads as part of the same thing.
+ */
+
+:root {
+  --ui-bg: #0a0e14;
+  --ui-panel: rgba(255, 255, 255, 0.05);
+  --ui-border: rgba(255, 255, 255, 0.12);
+  --ui-text: rgba(238, 245, 255, 0.92);
+  --ui-text-dim: rgba(197, 214, 232, 0.6);
+  --ui-accent: #7fd6ff;
+  --ui-live: #9dff2b;
+  --ui-warn: #ffc46a;
+  --ui-error: #ff7a6a;
+  --ui-radius: 14px;
+  --ui-font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+  -webkit-text-size-adjust: 100%;
+}
+
+.phone {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: calc(16px + env(safe-area-inset-top)) 18px calc(20px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.phone__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.phone__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.phone__sub {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ui-text-dim);
+}
+
+/* Reshaped to the camera's frame by main.js; a portrait one is narrowed and
+ * centred so the controls stay above the fold. */
+.phone__frame {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--ui-radius);
+  overflow: hidden;
+  background: #05070a;
+  border: 1px solid var(--ui-border);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+}
+
+.phone__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.phone__frame.is-portrait {
+  margin: 0 auto;
+}
+
+/* A selfie preview is mirrored, as every camera app does; the stream sent to
+ * the desktop is not — the tracker expects the raw frame either way. */
+.phone__frame.is-mirrored .phone__video {
+  transform: scaleX(-1);
+}
+
+.phone__badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(10, 14, 20, 0.7);
+  border: 1px solid var(--ui-border);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-text-dim);
+  backdrop-filter: blur(8px);
+}
+
+.phone__frame.is-live .phone__badge {
+  color: var(--ui-live);
+  border-color: rgba(157, 255, 43, 0.5);
+}
+
+.phone__frame.is-live {
+  border-color: rgba(157, 255, 43, 0.5);
+}
+
+.phone__status {
+  margin: 0;
+  min-height: 1.5em;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.phone__status[data-kind='warn'] {
+  color: var(--ui-warn);
+}
+
+.phone__status[data-kind='error'] {
+  color: var(--ui-error);
+}
+
+.phone__status[data-kind='live'] {
+  color: var(--ui-live);
+}
+
+.phone__controls {
+  display: flex;
+  gap: 10px;
+}
+
+.phone__btn {
+  flex: 1;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.phone__btn:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.phone__btn--primary {
+  background: rgba(127, 214, 255, 0.18);
+  border-color: rgba(127, 214, 255, 0.55);
+  color: #fff;
+}
+
+.phone__btn--stop {
+  background: rgba(255, 122, 106, 0.14);
+  border-color: rgba(255, 122, 106, 0.5);
+}
+
+.phone__btn[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.phone__tips {
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ui-text-dim);
+}
+
+.phone__foot {
+  padding-top: 10px;
+  border-top: 1px solid var(--ui-border);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--ui-accent);
+  opacity: 0.72;
+}
+
+/* ------------------------------------------------------------------ *
+ * AR mode: placing the stage from the phone, and looking through it
+ * ------------------------------------------------------------------ */
+
+.phone__freeze,
+.phone__quad {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.phone__freeze {
+  display: block;
+}
+
+.phone__freeze[hidden],
+.phone__quad[hidden],
+.phone__handle[hidden],
+.phone__loupe[hidden],
+.phone__stage[hidden],
+.phone__ar[hidden],
+.phone__custom[hidden] {
+  display: none !important;
+}
+
+.phone__quad polygon {
+  fill: rgba(127, 214, 255, 0.1);
+  stroke: rgba(127, 214, 255, 0.95);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 8 5;
+}
+
+/* Thumb-sized: 44 px is the smallest thing a finger reliably lands on. */
+.phone__handle {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  border: 2px solid rgba(127, 214, 255, 0.95);
+  background: rgba(10, 14, 20, 0.45);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 4px 14px rgba(0, 0, 0, 0.45);
+  touch-action: none;
+}
+
+.phone__handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.phone__handle.is-dragging {
+  border-color: var(--ui-live);
+  transform: scale(1.1);
+}
+
+.phone__loupe {
+  position: fixed;
+  z-index: 5;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  border: 2px solid rgba(127, 214, 255, 0.9);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
+.phone__ar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.phone__field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ui-text-dim);
+}
+
+.phone__select,
+.phone__input {
+  flex: 1;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-panel);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.phone__select option {
+  background: #10161e;
+}
+
+.phone__input {
+  max-width: 110px;
+}
+
+.phone__hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ui-text-dim);
+}
+
+/* The window onto the table: the PC's picture, full screen, letterboxed. */
+.phone__stage {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+}
+
+.phone__stage-video {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.phone__stage-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  background: rgba(10, 14, 20, 0.92);
+  border-top: 1px solid var(--ui-border);
+}
+
+.phone__stage-bar .phone__btn {
+  flex: 0 0 auto;
+  min-height: 42px;
+}
+
+.phone__stage-status {
+  font-size: 13px;
+  color: var(--ui-text-dim);
+}
+
+.phone__stage-status[data-kind='live'] {
+  color: var(--ui-live);
+}
+
+.phone__stage-status[data-kind='warn'] {
+  color: var(--ui-warn);
+}

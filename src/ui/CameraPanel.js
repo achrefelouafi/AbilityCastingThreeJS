@@ -1,0 +1,380 @@
+import { ELEMENT_META } from '../config/settings.js';
+import { ELEMENT_SIGILS } from './glyphs.js';
+import { GESTURE_GLYPHS, gestureGuide, gestureTitle } from './gestures.js';
+import { PHONE_PAIRING_MARKUP, PhonePairing } from './PhonePairing.js';
+import { makeDraggable } from './draggable.js';
+
+/**
+ * The camera-mode readout: a mirrored preview with the tracked skeleton drawn
+ * over it, a wake ring, a grab meter, and under them the gesture guide for
+ * whatever is in the slot.
+ *
+ * The skeleton is not decoration. On a stage the audience cannot tell a working
+ * tracker from a lucky one, and neither can the presenter — when a cast does
+ * not fire, the twenty-one dots are the only thing that says whether the model
+ * lost the hand or the pose simply was not read as a fist. It is the debugger
+ * and the party trick at once, which is why it is on by default.
+ *
+ * The guide is the same idea one level up. A fist means four different things
+ * across the bar — cast along the arrow, drop the circle, deploy the drone,
+ * hold its fire — so under the preview the panel lays out the hand shapes the
+ * *current* ability answers to, a tile for each with the hand drawn large and
+ * a line of what it does, and rebuilds them whenever the slot or the summon's
+ * state changes. The tile of the gesture the tracker is reading right now
+ * lights up in the engaged green: the presenter sees the pose land before the
+ * ability answers it.
+ *
+ * The preview is mirrored, because an un-mirrored self view is unusable — you
+ * move left and the hand on screen goes right. Everything drawn on top has to
+ * be mirrored with it, hence the flipped x below.
+ *
+ * The frame takes the shape of whatever is feeding it. A webcam is 4:3; a
+ * phone held upright sends a portrait frame, and a fixed 4:3 box would show
+ * only a slice of it — the tracker sees the whole frame, so the preview must
+ * too, or a hand at the edge of the picture is tracked with nothing on screen
+ * to show it. The box is resized to the source's aspect (a portrait one is
+ * narrowed to keep its height sane) and the overlay canvas with it, so a
+ * landmark maps to the preview by its normalised coordinates alone.
+ *
+ * Under the meter sits the phone pairing (`PhonePairing.js`): the way to use
+ * a phone's camera instead of the webcam, for a machine that has none or a
+ * bad one. It is part of this panel because it is part of camera mode — the
+ * preview, the skeleton and the guide are the same whichever camera feeds
+ * them.
+ */
+
+/** Bones, as index pairs into the 21 landmarks. */
+const BONES = [
+  // palm
+  [0, 1], [0, 5], [0, 17], [5, 9], [9, 13], [13, 17],
+  // thumb
+  [1, 2], [2, 3], [3, 4],
+  // index
+  [5, 6], [6, 7], [7, 8],
+  // middle
+  [9, 10], [10, 11], [11, 12],
+  // ring
+  [13, 14], [14, 15], [15, 16],
+  // pinky
+  [17, 18], [18, 19], [19, 20]
+];
+
+/**
+ * A portrait frame is narrowed rather than allowed the panel's full width,
+ * which at 3:4 would make it 395 px tall on top of the readout and the guide.
+ */
+const FRAME_MAX_HEIGHT = 280;
+/** Overlay backing-store width; its height follows the frame's aspect. */
+const OVERLAY_WIDTH = 320;
+
+/**
+ * How long the "lower your hand" tile stays lit after the hand has gone. The
+ * pose is an absence, so it has nothing to hold the light on; a short flash
+ * is what says "that was read as a cancel".
+ */
+const LOST_FLASH_MS = 1200;
+
+const MARKUP = `
+  <div class="hud__camera" data-camera>
+    <div class="camera__frame" data-camera-frame>
+      <div class="camera__video" data-camera-video></div>
+      <canvas class="camera__overlay" data-camera-overlay width="320" height="240"></canvas>
+      <div class="camera__wake" data-camera-wake></div>
+    </div>
+    <div class="camera__readout">
+      <div class="camera__row">
+        <span class="camera__label" data-camera-status>Starting camera…</span>
+        <span class="camera__slot" data-camera-slot></span>
+      </div>
+      <div class="camera__meter"><i data-camera-grab></i></div>
+      ${PHONE_PAIRING_MARKUP}
+      <div class="camera__guide" data-camera-guide>
+        <div class="guide__head">
+          <span class="guide__sigil" data-guide-sigil></span>
+          <span class="guide__title" data-guide-title></span>
+          <kbd class="guide__key" data-guide-key></kbd>
+        </div>
+        <div class="guide__kind" data-guide-kind></div>
+        <div class="guide__rows" data-guide-rows></div>
+      </div>
+    </div>
+  </div>
+`;
+
+export { MARKUP as CAMERA_MARKUP };
+
+export class CameraPanel {
+  constructor(root) {
+    this.element = root.querySelector('[data-camera]');
+    this.frame = root.querySelector('[data-camera-frame]');
+    this.videoSlot = root.querySelector('[data-camera-video]');
+    this.canvas = root.querySelector('[data-camera-overlay]');
+    this.ctx = this.canvas.getContext('2d');
+    this.wake = root.querySelector('[data-camera-wake]');
+    this.status = root.querySelector('[data-camera-status]');
+    this.slot = root.querySelector('[data-camera-slot]');
+    this.grab = root.querySelector('[data-camera-grab]');
+
+    this.guide = root.querySelector('[data-camera-guide]');
+    this.guideSigil = root.querySelector('[data-guide-sigil]');
+    this.guideTitle = root.querySelector('[data-guide-title]');
+    this.guideKey = root.querySelector('[data-guide-key]');
+    this.guideKind = root.querySelector('[data-guide-kind]');
+    this.guideRows = root.querySelector('[data-guide-rows]');
+
+    this.phone = new PhonePairing(this.element);
+
+    this._statusShown = '';
+    this._slotShown = '';
+    this._grabShown = -1;
+    /** The source size the frame is currently shaped for. */
+    this._frameShown = '';
+    this._fitFrame = this._fitFrame.bind(this);
+
+    /** What the guide was last built for, so a frame that changes nothing costs nothing. */
+    this._guideKey = '';
+    /** Tiles by the tracker reading that lights them, for `_highlight`. */
+    this._liveRows = new Map();
+    /** The two point icons, by direction, so only the one being read lights. */
+    this._pointIcons = { '-1': null, '1': null };
+    this._litShown = new Set();
+    this._pointDirShown = 0;
+    this._wasEngaged = false;
+    this._lostFlashUntil = 0;
+
+    this._mirrored = true;
+    this._undrag = makeDraggable(this.element);
+  }
+
+  /**
+   * A webcam preview is mirrored, because an un-mirrored self view is
+   * unusable. AR mode's camera looks at a table, not at the presenter, and
+   * its frame is on the main view *un*-mirrored — so the preview and the
+   * skeleton follow suit, or the little picture disagrees with the big one.
+   */
+  setMirrored(on) {
+    this._mirrored = on;
+    this.element.classList.toggle('is-raw', !on);
+  }
+
+  setVisible(on) {
+    this.element.classList.toggle('is-visible', on);
+    if (!on) this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  /** Adopt the tracker's video element rather than opening a second stream. */
+  attach(video) {
+    if (!video || video.parentElement === this.videoSlot) return;
+    this.videoSlot.replaceChildren(video);
+    // Its shape can change under the tracker without a new element: a new
+    // stream on the same element (`loadedmetadata`), or the phone flipping to
+    // a camera of another aspect mid-stream (`resize`).
+    video.addEventListener('loadedmetadata', this._fitFrame);
+    video.addEventListener('resize', this._fitFrame);
+    this._fitFrame();
+  }
+
+  /** Shape the frame and the overlay to the source. Idempotent per size. */
+  _fitFrame() {
+    const video = this.videoSlot.firstElementChild;
+    const vw = video?.videoWidth || 4;
+    const vh = video?.videoHeight || 3;
+    const key = `${vw}x${vh}`;
+    if (key === this._frameShown) return;
+    this._frameShown = key;
+
+    const portrait = vh > vw;
+    this.frame.style.aspectRatio = `${vw} / ${vh}`;
+    this.frame.style.width = portrait ? `${Math.round((FRAME_MAX_HEIGHT * vw) / vh)}px` : '';
+    this.frame.classList.toggle('is-portrait', portrait);
+    // Same shape for the backing store, or a round dot is drawn as an ellipse.
+    this.canvas.width = OVERLAY_WIDTH;
+    this.canvas.height = Math.round((OVERLAY_WIDTH * vh) / vw);
+  }
+
+  setStatus(text) {
+    if (text === this._statusShown) return;
+    this._statusShown = text;
+    this.status.textContent = text;
+  }
+
+  /**
+   * @param {object} state  the tracker's snapshot
+   * @param {object|null} result  its newest raw inference, for the skeleton
+   * @param {object} [context]
+   * @param {string} [context.element]  id of the ability in the slot
+   * @param {boolean} [context.deployed] a summon is out and holding the bar,
+   *   so the slot's gestures are its controls rather than a cast's
+   * @param {string|null} [context.status] what to say instead of "Aiming" —
+   *   a summon, when it is out, is driven rather than aimed
+   */
+  update(state, result, { element = '', deployed = false, status = null } = {}) {
+    this.element.classList.toggle('is-engaged', state.engaged);
+
+    if (!state.ready) {
+      // Still opening the device or loading the model: the line App set
+      // ("Starting camera…") stands until there is a tracker to report on.
+    } else if (!state.engaged) {
+      this.setStatus(state.aimSeen ? 'Hold your palm open to engage' : 'Show your casting hand');
+    } else if (state.pointing) {
+      this.setStatus(status ? 'Recalling…' : state.pointing > 0 ? 'Next ability →' : '← Previous ability');
+    } else {
+      this.setStatus(status ?? 'Aiming');
+    }
+
+    const slotLabel = ELEMENT_META[element]?.key ?? '';
+    if (slotLabel !== this._slotShown) {
+      this._slotShown = slotLabel;
+      this.slot.textContent = slotLabel;
+    }
+
+    // The wake ring doubles as the grab meter once engaged: before engaging it
+    // fills over the hold, after it tracks how closed the hand is. One control,
+    // two phases, and the presenter only ever watches one thing.
+    const fill = state.engaged ? state.grab : state.wake;
+    if (Math.abs(fill - this._grabShown) > 0.01) {
+      this._grabShown = fill;
+      this.wake.style.setProperty('--fill', fill);
+      this.grab.style.transform = `scaleX(${fill})`;
+    }
+
+    this._syncGuide(element, deployed);
+    this._highlight(state);
+    this._drawSkeleton(result);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* The gesture guide                                                   */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Rebuild the guide when the slot or the summon's state has changed, and
+   * only then — this runs every frame, and the DOM it would build is the
+   * same one it built last frame almost every time.
+   */
+  _syncGuide(element, deployed) {
+    if (!element) return;
+    const key = `${element}:${deployed ? 1 : 0}`;
+    if (key === this._guideKey) return;
+    this._guideKey = key;
+
+    const { label, key: slotKey, accent } = gestureTitle(element);
+    const { kind, rows } = gestureGuide(element, { deployed });
+
+    this.guide.style.setProperty('--guide-accent', accent);
+    this.guideSigil.innerHTML = ELEMENT_SIGILS[element] ?? '';
+    this.guideTitle.textContent = label;
+    this.guideKey.textContent = slotKey;
+    this.guideKind.textContent = kind;
+
+    this._liveRows.clear();
+    this._pointIcons['-1'] = null;
+    this._pointIcons['1'] = null;
+    this._litShown.clear();
+    this._pointDirShown = 0;
+
+    // Tiles wrap three to a line; the count picks how the last line fills.
+    this.guideRows.dataset.count = rows.length;
+    this.guideRows.innerHTML = rows
+      .map(
+        (row, i) => `
+          <div class="gesture" data-live="${row.live}" style="--i:${i}">
+            <span class="gesture__icons">
+              ${row.icons.map((icon) => `<span class="gesture__icon" data-icon="${icon}">${GESTURE_GLYPHS[icon] ?? ''}</span>`).join('')}
+            </span>
+            <b class="gesture__name">${row.name}</b>
+            ${row.hand ? `<i class="gesture__hand">other hand</i>` : ''}
+            <span class="gesture__does">${row.does}</span>
+          </div>`
+      )
+      .join('');
+
+    for (const el of this.guideRows.querySelectorAll('.gesture')) {
+      this._liveRows.set(el.dataset.live, el);
+    }
+    this._pointIcons['-1'] = this.guideRows.querySelector('[data-icon="prev"]');
+    this._pointIcons['1'] = this.guideRows.querySelector('[data-icon="next"]');
+
+    // Replay the entrance so a slot change is seen as one, not as tiles that
+    // silently swapped under the eye. Removing and re-adding the class in the
+    // same frame would coalesce, hence the forced reflow between.
+    this.guide.classList.remove('is-fresh');
+    void this.guide.offsetWidth;
+    this.guide.classList.add('is-fresh');
+  }
+
+  /**
+   * Light the tiles of the gestures the tracker is reading this frame.
+   *
+   * Each reading is judged on its own — the select hand can be pointing while
+   * the aim hand holds a fist — so more than one tile can be lit at once. Only
+   * the tiles whose state actually changed touch the DOM.
+   */
+  _highlight(state) {
+    const now = performance.now();
+
+    // The hand going away is the one gesture with no pose to hold the light on,
+    // so it is lit on the transition and for a moment after.
+    if (this._wasEngaged && !state.engaged && !state.aimSeen) this._lostFlashUntil = now + LOST_FLASH_MS;
+    this._wasEngaged = state.engaged;
+
+    const lit = {
+      wake: !state.engaged && state.aimSeen,
+      aim: state.engaged && state.aimSeen && !state.grabbing,
+      grab: state.grabbing,
+      point: state.pointing !== 0,
+      lost: now < this._lostFlashUntil
+    };
+
+    for (const [live, el] of this._liveRows) {
+      const on = !!lit[live];
+      if (on === this._litShown.has(live)) continue;
+      if (on) this._litShown.add(live);
+      else this._litShown.delete(live);
+      el.classList.toggle('is-live', on);
+    }
+
+    // The point tile carries both directions; only the one being read lights.
+    const dir = lit.point ? state.pointing : 0;
+    if (dir !== this._pointDirShown) {
+      this._pointIcons[String(this._pointDirShown)]?.classList.remove('is-live');
+      this._pointIcons[String(dir)]?.classList.add('is-live');
+      this._pointDirShown = dir;
+    }
+  }
+
+  _drawSkeleton(result) {
+    const { ctx, canvas } = this;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const hands = result?.landmarks;
+    if (!hands?.length) return;
+
+    const mirrored = this._mirrored;
+    for (const landmarks of hands) {
+      // Mirrored to match the preview underneath. The frame and this canvas
+      // are shaped to the source (`_fitFrame`), so normalised landmarks map
+      // straight onto it with nothing cropped away.
+      const px = (p) => (mirrored ? 1 - p.x : p.x) * w;
+      const py = (p) => p.y * h;
+
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(127, 214, 255, 0.75)';
+      ctx.beginPath();
+      for (const [a, b] of BONES) {
+        ctx.moveTo(px(landmarks[a]), py(landmarks[a]));
+        ctx.lineTo(px(landmarks[b]), py(landmarks[b]));
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      for (const p of landmarks) {
+        ctx.beginPath();
+        ctx.arc(px(p), py(p), 2.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+}

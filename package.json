@@ -1,0 +1,23 @@
+{
+  "name": "casting-abilities",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Eleven fully procedural abilities with a MOBA-style ground aim indicator, built with Three.js, custom GLSL and a real-time VFX editor.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:lan": "vite --mode lan",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1",
+    "lil-gui": "^0.21.0",
+    "qrcode-generator": "^2.0.4",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "vite": "^8.1.5"
+  }
+}
