@@ -33,7 +33,7 @@ export class HUD {
 
       <div class="hud__panel hud__title">
         Elemental Sandbox
-        <span data-blurb>Press Q, E, R, X, B, Z, F, K or L, aim, click to cast. V deploys the bot, Y the drone.</span>
+        <span data-blurb>Press Q, E, R, X, B, Z, F, K, L or I, aim, click to cast. V deploys the bot, Y the drone.</span>
       </div>
 
       <div class="hud__panel hud__stats">
@@ -50,7 +50,8 @@ export class HUD {
         <div><strong>Z</strong> — Toxic Shield of Conquest &nbsp; <strong>F</strong> — Serpent Tide Field</div>
         <div><strong>V</strong> — Monowheel Bot (toggle) &nbsp; <strong>Y</strong> — Sentinel Drone (toggle)</div>
         <div><strong>K</strong> (or <strong>0</strong>) — Abyssal Maw &nbsp; <strong>L</strong> — Chains of Penance</div>
-        <div class="hud__help-note">Q, E and R are line casts — aimed with an arrow. X, B, Z and F are far casts — aimed with a circle.</div>
+        <div><strong>I</strong> — Dragonfire Circle</div>
+        <div class="hud__help-note">Q, E and R are line casts — aimed with an arrow. X, B, Z, F and I are far casts — aimed with a circle.</div>
         <div class="hud__help-note">K and L are targeted: the circle locks onto the body under the cursor, and that one is taken.</div>
         <div class="hud__help-note">V and Y are summons: press to deploy, press again to recall. Drive with the stick or WASD, hold Space or click to fire. Nothing else casts while one is up.</div>
         <div class="hud__help-note">The bot is a wheel: it turns to face the stick and drives; locked on, the stick is forward and back.</div>
@@ -72,6 +73,7 @@ export class HUD {
         <div class="hud__help-note">So does the Corrupted Shard: its light fires a beam at them, then burns them out.</div>
         <div class="hud__help-note">The Glacial Prison and the Toxic Shield take whoever stands in the circle: frozen or turned to glass, then shattered.</div>
         <div class="hud__help-note">The Abyssal Maw kicks its target up on a spike of rock, and a shark leaps out of one portal, takes it, and drags it down into the other.</div>
+        <div class="hud__help-note">The Dragonfire Circle summons a dragon that flies the circle breathing fire onto its edge; the fire then runs inward and burns everything standing in it.</div>
         <div class="hud__help-note">The Chains of Penance throw a chain out of a portal at every limb, haul the body up, and tear it apart — each piece dragged back through its own portal.</div>
         <div class="hud__help-note">Paused still applies every editor change.</div>
       </div>

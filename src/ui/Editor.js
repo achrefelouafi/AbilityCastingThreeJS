@@ -43,6 +43,7 @@ export class Editor {
     this._buildPhoenix();
     this._buildShark();
     this._buildChains();
+    this._buildDragon();
     this._buildMonowheel();
     this._buildDrone();
     this._buildEnvironment();
@@ -1780,6 +1781,195 @@ export class Editor {
     R(light, c, 'portalLightRadius', 1, 30, 0.1, 'portal radius');
 
     this.chainsFolder = folder;
+  }
+
+  /**
+   * The Dragonfire Circle, in the order of the show.
+   *
+   * Units: seconds for **The timing** (each act after the last); metres for
+   * anything on the stage, except `orbitRadius`, which is a fraction of the
+   * circle; kelvin for the fire's two temperatures.
+   */
+  _buildDragon() {
+    const folder = this.gui.addFolder('🐉  Dragonfire Circle');
+    const c = settings.dragon;
+    const R = Editor.range;
+
+    const cast = folder.addFolder('The cast');
+    R(cast, c, 'range', 4, 60, 0.1, 'max range');
+    R(cast, c, 'minRange', 0, 12, 0.1, 'min range');
+    R(cast, c, 'zoneRadius', 2, 12, 0.1, 'circle radius (m)');
+    R(cast, c, 'speed', 4, 120, 0.5, 'fuse speed (m/s)');
+    R(cast, c, 'fuseEmbers', 0, 800, 1, 'fuse embers/s');
+    R(cast, c, 'fadeTime', 0.5, 20, 0.1, 'floor cools over (s)');
+    R(cast, c, 'cooldown', 0, 20, 0.05, 'cooldown');
+    Editor.castAnimation(cast, c);
+
+    const timing = folder.addFolder('The timing');
+    R(timing, c, 'portalOpen', 0.05, 3, 0.01, 'sky tears open (s)');
+    R(timing, c, 'arriveTime', 0.3, 5, 0.01, 'the dive (s)');
+    R(timing, c, 'traceTime', 0.6, 12, 0.05, 'the lap (s)');
+    R(timing, c, 'climbTime', 0.2, 4, 0.01, 'the climb (s)');
+    R(timing, c, 'roarTime', 0.15, 3, 0.01, 'the roar (s)');
+    R(timing, c, 'spreadTime', 0.3, 10, 0.05, 'fire runs inward (s)');
+    R(timing, c, 'finaleTime', 0.1, 3, 0.01, 'last breath (s)');
+    R(timing, c, 'departTime', 0.4, 5, 0.01, 'the leaving (s)');
+
+    /* ---- panel 1 ---- */
+    const portal = folder.addFolder('1 · The tear in the sky');
+    R(portal, c, 'portalHeight', 4, 30, 0.1, 'height (m)');
+    R(portal, c, 'portalBack', -10, 20, 0.1, 'past the circle (m)');
+    R(portal, c, 'portalRadius', 0.5, 10, 0.05, 'radius (m)');
+    R(portal, c, 'portalTilt', 0, 1.5, 0.01, 'turned to the circle (rad)');
+    R(portal, c, 'portalSpin', -6, 6, 0.05, 'vortex spin (rad/s)');
+    R(portal, c, 'portalIntensity', 0, 8, 0.05, 'fire');
+    R(portal, c, 'portalVoid', 0, 1, 0.01, 'void darkness');
+    R(portal, c, 'portalShake', 0, 1.5, 0.005, 'shake as it comes through');
+    R(portal, c, 'portalLight', 0, 200, 0.5, 'light');
+    R(portal, c, 'portalLightRadius', 1, 50, 0.1, 'light radius');
+    R(portal, c, 'revealWidth', 0.02, 2, 0.01, 'molten edge (m)');
+    R(portal, c, 'revealGlow', 0, 30, 0.1, 'molten edge glow');
+
+    /* ---- panel 2 ---- */
+    const dragon = folder.addFolder('2 · The dragon');
+    const flight = dragon.addFolder('The flight');
+    R(flight, c, 'wingspan', 2, 20, 0.05, 'wingspan (m)');
+    R(flight, c, 'altitude', 1, 12, 0.05, 'lap height (m)');
+    R(flight, c, 'orbitRadius', 0.6, 2, 0.01, 'lap (of circle radius)');
+    R(flight, c, 'lag', -1, 1.5, 0.01, 'trails its fire by (rad)');
+    R(flight, c, 'hoverHeight', 2, 16, 0.05, 'hovers at (m)');
+    R(flight, c, 'bank', 0, 3, 0.01, 'bank');
+    R(flight, c, 'bob', 0, 1, 0.005, 'bob per beat (m)');
+    const wings = dragon.addFolder('The wings, the neck, the jaw');
+    R(wings, c, 'idleWeight', 0, 1, 0.01, 'authored idle shows');
+    R(wings, c, 'flapRate', 0.1, 4, 0.01, 'beats/s on the lap');
+    R(wings, c, 'flapAmplitude', 0, 1.4, 0.01, 'stroke on the lap (rad)');
+    R(wings, c, 'hoverRate', 0.1, 4, 0.01, 'beats/s hovering');
+    R(wings, c, 'hoverAmplitude', 0, 1.4, 0.01, 'stroke hovering (rad)');
+    R(wings, c, 'diveSweep', 0, 1.5, 0.01, 'folded in the dive (rad)');
+    R(wings, c, 'dihedral', -0.5, 0.8, 0.01, 'held up (rad)');
+    R(wings, c, 'tailSway', 0, 0.6, 0.005, 'tail sway (rad)');
+    R(wings, c, 'neckCurl', -0.8, 1, 0.01, 'neck carried down (rad)');
+    R(wings, c, 'aimLimit', 0, 3, 0.01, 'neck turns up to (rad)');
+    R(wings, c, 'breathJaw', 0, 1.2, 0.01, 'jaw to breathe (rad)');
+    R(wings, c, 'roarJaw', 0, 1.2, 0.01, 'jaw to roar (rad)');
+    R(wings, c, 'roarShake', 0, 1.5, 0.005, 'roar shake');
+    R(wings, c, 'roarFlash', 0, 0.5, 0.005, 'roar flash');
+    const hide = dragon.addFolder('The hide');
+    R(hide, c, 'underGlow', 0, 4, 0.01, 'fire under it');
+    R(hide, c, 'throatGlow', 0, 10, 0.05, 'throat glow');
+    R(hide, c, 'dragonRim', 0, 3, 0.01, 'ember rim');
+    R(hide, c, 'dragonRimPower', 0.5, 8, 0.05, 'rim tightness');
+    hide.addColor(c, 'colorRim').name('rim colour');
+
+    /* ---- panel 3 ---- */
+    const breath = folder.addFolder('3 · The breath');
+    R(breath, c, 'breathWidth', 0.02, 1, 0.005, 'at the lips (m)');
+    R(breath, c, 'breathSpread', 0.1, 4, 0.01, 'where it lands (m)');
+    R(breath, c, 'breathCore', 0, 1, 0.01, 'white core');
+    R(breath, c, 'breathSpeed', 2, 60, 0.5, 'gas speed (m/s)');
+    R(breath, c, 'breathBend', 0, 2, 0.01, 'left behind as it flies');
+    R(breath, c, 'breathNoiseScale', 0.2, 4, 0.05, 'noise scale');
+    R(breath, c, 'breathShred', 0, 3, 0.01, 'shred');
+    R(breath, c, 'breathIntensity', 0, 8, 0.05, 'intensity');
+    R(breath, c, 'breathPuffs', 0, 400, 1, 'puffs/s down the jet');
+    R(breath, c, 'splashRate', 0, 300, 1, 'splash puffs/s');
+    R(breath, c, 'breathSparks', 0, 300, 1, 'sparks/s');
+    R(breath, c, 'breathLight', 0, 200, 0.5, 'light');
+    R(breath, c, 'breathShake', 0, 0.5, 0.005, 'shake');
+
+    /* ---- panel 4 ---- */
+    const ring = folder.addFolder('4 · The ring');
+    R(ring, c, 'ringHeight', 0.2, 6, 0.05, 'wall height (m)');
+    R(ring, c, 'ringThick', 0, 1.5, 0.01, 'wall depth (m)');
+    R(ring, c, 'ringGrow', 0.05, 2, 0.01, 'catches over (rad)');
+    R(ring, c, 'ringFlare', 0, 3, 0.01, 'leaps where it catches');
+    R(ring, c, 'ringNoiseScale', 0.2, 5, 0.05, 'noise scale');
+    R(ring, c, 'ringRise', 0, 6, 0.05, 'tongues climb (m/s)');
+    R(ring, c, 'ringShred', 0, 3, 0.01, 'shred');
+    R(ring, c, 'ringIntensity', 0, 8, 0.05, 'intensity');
+    R(ring, c, 'ringBand', 0.05, 2, 0.01, 'scorched band (m)');
+    R(ring, c, 'ringEmbers', 0, 400, 1, 'embers/s');
+    R(ring, c, 'closeShake', 0, 1.5, 0.005, 'shake as it closes');
+    R(ring, c, 'closeFlash', 0, 0.5, 0.005, 'flash as it closes');
+    R(ring, c, 'closeLight', 0, 300, 0.5, 'light as it closes');
+
+    /* ---- panel 5 ---- */
+    const spread = folder.addFolder('5 · The fire runs inward');
+    R(spread, c, 'frontHeight', 0.1, 5, 0.05, 'front wall (m)');
+    R(spread, c, 'frontWobble', 0, 2, 0.01, 'edge torn by (m)');
+    R(spread, c, 'frontWidth', 0.05, 2, 0.01, 'burning line (m)');
+    R(spread, c, 'frontGlow', 0, 8, 0.05, 'burning line glow');
+    R(spread, c, 'heatReach', 0.1, 6, 0.05, 'burns hot behind it (m)');
+    R(spread, c, 'blazeHeight', 0.1, 5, 0.05, 'tongues (m)');
+    R(spread, c, 'blazeWidth', 0.1, 3, 0.01, 'tongue width (m)');
+    R(spread, c, 'blazeBurn', 0.3, 8, 0.05, 'roars for (s)');
+    R(spread, c, 'blazeSustain', 0, 1, 0.01, 'share that burn on');
+    R(spread, c, 'blazeLeap', 0, 3, 0.01, 'leaps as it catches');
+    R(spread, c, 'blazeIntensity', 0, 8, 0.05, 'intensity');
+    R(spread, c, 'blazeNoiseScale', 0.2, 5, 0.05, 'noise scale');
+    R(spread, c, 'fieldPuffs', 0, 300, 1, 'fire puffs/s');
+    R(spread, c, 'fieldEmbers', 0, 500, 1, 'embers/s');
+    R(spread, c, 'smokeRate', 0, 80, 1, 'smoke/s');
+    R(spread, c, 'smokeOpacity', 0, 1, 0.01, 'smoke opacity');
+    R(spread, c, 'eruptionShake', 0, 1.5, 0.005, 'eruption shake');
+    R(spread, c, 'eruptionFlash', 0, 0.6, 0.005, 'eruption flash');
+    R(spread, c, 'eruptionLight', 0, 400, 1, 'eruption light');
+    R(spread, c, 'eruptionEmbers', 0, 800, 1, 'eruption embers');
+
+    /* ---- panel 6 ---- */
+    const floor = folder.addFolder('6 · The floor');
+    R(floor, c, 'charDark', 0, 1, 0.01, 'char');
+    R(floor, c, 'crackScale', 0.2, 5, 0.05, 'plates per metre');
+    R(floor, c, 'crackWidth', 0.005, 0.4, 0.005, 'crack width');
+    R(floor, c, 'crackGlow', 0, 8, 0.05, 'crack glow');
+    R(floor, c, 'groundEmbers', 0, 5, 0.05, 'embers in the crust');
+    R(floor, c, 'ash', 0, 2, 0.01, 'ash');
+    floor.addColor(c, 'colorChar').name('char');
+    floor.addColor(c, 'colorAsh').name('ash');
+    floor.addColor(c, 'colorHot').name('heat');
+    floor.addColor(c, 'colorCrack').name('cracks');
+    R(floor, c, 'heatHaze', 0, 3, 0.01, 'heat haze');
+    R(floor, c, 'hazeHeight', 0.5, 12, 0.1, 'haze height (m)');
+    R(floor, c, 'lingerEmbers', 0, 300, 1, 'embers/s as it cools');
+
+    /* ---- panel 7 ---- */
+    const bodies = folder.addFolder('7 · The bodies');
+    const bc = c.burn;
+    R(bodies, bc, 'stain', 0, 8, 0.05, 'chars at (1/s)');
+    R(bodies, bc, 'onset', 0, 4, 0.01, 'starts to go after (s)');
+    R(bodies, bc, 'rate', 0.05, 4, 0.01, 'burns away at (1/s)');
+    R(bodies, bc, 'flames', 0, 200, 1, 'fire puffs/s each');
+    R(bodies, bc.look, 'rimEmissive', 0, 8, 0.05, 'burnt rim glow');
+    R(bodies, bc.look, 'edgeEmissive', 0, 16, 0.05, 'burn line glow');
+    R(bodies, bc.look, 'edgeWidth', 0.005, 0.4, 0.005, 'burn line width');
+    bodies.addColor(bc.look, 'color').name('charred');
+    bodies.addColor(bc.look, 'rimColor').name('burnt rim');
+    bodies.addColor(bc.look, 'edgeColor').name('burn line');
+    R(bodies, c.burnHit, 'impulse', 0, 15, 0.1, 'stagger (m/s)');
+    R(bodies, c.burnHit, 'lift', 0, 10, 0.1, 'lift');
+    R(bodies, c.burnHit, 'spin', 0, 6, 0.05, 'spin');
+
+    const fire = folder.addFolder('The fire');
+    R(fire, c, 'tempCore', 1500, 8000, 10, 'core (K)');
+    R(fire, c, 'tempEdge', 1000, 4000, 10, 'edge (K)');
+    R(fire, c, 'emissionCurve', 0.5, 6, 0.05, 'radiance exponent');
+    R(fire, c, 'palette', 0, 1, 0.01, 'radiator → palette');
+    fire.addColor(c, 'colorCore').name('core');
+    fire.addColor(c, 'colorMid').name('mid');
+    fire.addColor(c, 'colorEdge').name('edge');
+    fire.addColor(c, 'colorEmber').name('ember');
+
+    const light = folder.addFolder('The light');
+    R(light, c, 'lightIntensity', 0, 120, 0.5, 'on the dragon');
+    R(light, c, 'lightRadius', 1, 40, 0.1, 'dragon light radius');
+    light.addColor(c, 'lightColor').name('dragon light colour');
+    R(light, c, 'lightGutter', 0, 1, 0.01, 'gutter');
+    R(light, c, 'lightGutterSpeed', 0.5, 30, 0.1, 'gutter speed');
+    R(light, c, 'fieldLight', 0, 160, 0.5, 'the field');
+    R(light, c, 'fieldLightRadius', 1, 40, 0.1, 'field light radius');
+
+    this.dragonFolder = folder;
   }
 
   _buildMonowheel() {

@@ -236,7 +236,28 @@ const CHAINS = WRAP(`
   <path d="M47 63L41 69M53 63L59 69"/>
 `);
 
+/**
+ * Dragonfire Circle — the dragon over the ring it is burning.
+ *
+ * The one sigil that is drawn *in progress*: the ring on the floor is solid
+ * and licked with flame for the part the breath has been round, and dashed
+ * for the part it has still to go — which is the whole idea of the cast at
+ * 34px. Over it the dragon, wings spread with the fingers of a bat, and the
+ * breath running from its jaw down onto the leading end of the fire.
+ */
+const DRAGON = WRAP(`
+  <path d="M18 74A36 12 0 0 0 82 74"/>
+  <path d="M82 74A36 12 0 0 0 18 74" stroke-dasharray="4 6"/>
+  <path d="M30 84L28 78M44 87L44 80M58 87L59 80M72 83L75 77" stroke-width="3"/>
+  <path d="M50 22V48C50 54 54 58 60 58"/>
+  <path d="M50 30C42 22 30 18 14 18C20 24 22 28 22 33C28 30 32 31 35 36C38 33 42 34 45 38"/>
+  <path d="M50 30C58 22 70 18 86 18C80 24 78 28 78 33C72 30 68 31 65 36C62 33 58 34 55 38"/>
+  <path d="M47 18L50 14L53 18"/>
+  <path d="M53 22C62 34 74 48 82 70" stroke-dasharray="3 4" stroke-width="3"/>
+`);
+
 export const ELEMENT_SIGILS = {
+  dragon: DRAGON,
   chains: CHAINS,
   shark: SHARK,
   flux: FLUX,

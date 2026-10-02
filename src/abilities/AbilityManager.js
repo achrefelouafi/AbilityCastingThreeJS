@@ -9,6 +9,7 @@ import { MonowheelAbility } from './MonowheelAbility.js';
 import { DroneAbility } from './DroneAbility.js';
 import { SharkAbility } from './SharkAbility.js';
 import { ChainsAbility } from './ChainsAbility.js';
+import { DragonAbility } from './DragonAbility.js';
 import { ELEMENTS } from '../config/settings.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
@@ -24,7 +25,8 @@ const ABILITY_TYPES = {
   monowheel: MonowheelAbility,
   drone: DroneAbility,
   shark: SharkAbility,
-  chains: ChainsAbility
+  chains: ChainsAbility,
+  dragon: DragonAbility
 };
 
 const MAX_CONCURRENT = 4;

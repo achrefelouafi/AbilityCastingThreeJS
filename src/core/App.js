@@ -16,6 +16,7 @@ import { buildDroneRig } from '../assets/DroneRig.js';
 import { buildMonowheelRig } from '../assets/MonowheelRig.js';
 import { buildPhoenixRig } from '../assets/PhoenixRig.js';
 import { buildSharkRig } from '../assets/SharkRig.js';
+import { buildDragonRig } from '../assets/DragonRig.js';
 import { CharacterController } from '../animation/CharacterController.js';
 import { DummyField } from '../combat/DummyField.js';
 
@@ -47,6 +48,7 @@ const DRONE_URL = './models/drone.glb';
 const MONOWHEEL_URL = './models/monowheelArmyBot.glb';
 const PHOENIX_URL = './models/phoenix_bird.glb';
 const SHARK_URL = './models/shark.glb';
+const DRAGON_URL = './models/dragon.glb';
 
 const _summonHeading = new Vector3();
 
@@ -752,6 +754,11 @@ export class App {
     const shark = await assets.loadGLTF(SHARK_URL);
     await assets.settled();
     this.models.shark = buildSharkRig(shark, { length: settings.shark.length });
+
+    this.loading.setProgress(0.849, 'Waking the dragon…');
+    const dragon = await assets.loadGLTF(DRAGON_URL);
+    await assets.settled();
+    this.models.dragon = buildDragonRig(dragon, { wingspan: settings.dragon.wingspan });
 
     await this._precompile(0.85, 0.99);
 
