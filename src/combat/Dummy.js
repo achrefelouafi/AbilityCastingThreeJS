@@ -8,7 +8,10 @@ import {
   MeshDepthMaterial,
   MeshStandardMaterial,
   RGBADepthPacking,
-  Vector3
+  BufferAttribute,
+  Vector2,
+  Vector3,
+  Vector4
 } from 'three';
 import { clone as cloneRigged } from 'three/addons/utils/SkeletonUtils.js';
 
@@ -16,7 +19,188 @@ import { settings } from '../config/settings.js';
 import { getColor } from '../utils/color.js';
 import { noiseGLSL } from '../shaders/lib/noise.glsl.js';
 import { LAYER } from '../core/Layers.js';
-import { Ragdoll, collideRagdolls, stripNamespace } from './Ragdoll.js';
+import { JOINT_NAMES, Ragdoll, collideRagdolls, stripNamespace } from './Ragdoll.js';
+
+/**
+ * The pieces a body can be torn into, besides what is left of it.
+ *
+ * Each is a limb hanging off one joint of the trunk (`socket`) by its first
+ * bone (`root`). `slot` is where its membership lives in the two vertex
+ * attributes `tagTearRegions` writes — `aTearA` holds head and arms, `aTearB`
+ * the legs — and `joints` is what the piece's own solver simulates once it is
+ * off, on top of the socket it came out of (see `tear`).
+ */
+export const TEAR_REGIONS = Object.freeze({
+  head: { slot: 0, root: 'Head', socket: 'Neck', joints: ['Head', 'HeadTop_End'] },
+  armL: { slot: 1, root: 'LeftArm', socket: 'LeftShoulder', joints: ['LeftArm', 'LeftForeArm', 'LeftHand'] },
+  armR: { slot: 2, root: 'RightArm', socket: 'RightShoulder', joints: ['RightArm', 'RightForeArm', 'RightHand'] },
+  legL: {
+    slot: 3,
+    root: 'LeftUpLeg',
+    socket: 'Hips',
+    joints: ['LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase', 'LeftToe_End']
+  },
+  legR: {
+    slot: 4,
+    root: 'RightUpLeg',
+    socket: 'Hips',
+    joints: ['RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase', 'RightToe_End']
+  }
+});
+
+/** Each region's own joints, as a set — what stays rigid when it is loosened. */
+const REGION_JOINTS = Object.fromEntries(
+  Object.entries(TEAR_REGIONS).map(([name, region]) => [name, new Set(region.joints)])
+);
+
+/** root bone → slot, for walking a skeleton up to the region it hangs in. */
+const ROOT_SLOT = Object.fromEntries(Object.values(TEAR_REGIONS).map((region) => [region.root, region.slot]));
+
+/**
+ * How much of every vertex belongs to each limb, off its skin weights.
+ *
+ * A bone belongs to a region if the region's root is the bone itself or any
+ * bone above it — so the fingers are the arm's and the eyes the head's — and a
+ * vertex belongs to it by the share of its weight those bones carry. Across a
+ * joint that share runs smoothly from 1 to 0 over exactly the skin the rig
+ * blends there, which is the band a limb tears through: threshold it at a half
+ * and the trunk and the limb get complementary halves of the same seam, with
+ * nothing missing and nothing drawn twice.
+ *
+ * Written onto the geometry, which every dummy shares, so it is paid once.
+ */
+function tagTearRegions(model) {
+  model.traverse((node) => {
+    if (!node.isSkinnedMesh) return;
+    const geometry = node.geometry;
+    if (geometry.getAttribute('aTearA')) return;
+    const index = geometry.getAttribute('skinIndex');
+    const weight = geometry.getAttribute('skinWeight');
+    const count = geometry.getAttribute('position').count;
+    const a = new Float32Array(count * 3);
+    const b = new Float32Array(count * 2);
+    // Which region each of the four influences belongs to, -1 for the trunk.
+    const bones = new Float32Array(count * 4).fill(-1);
+
+    if (index && weight) {
+      const slots = node.skeleton.bones.map((bone) => {
+        for (let current = bone; current; current = current.parent) {
+          const slot = ROOT_SLOT[stripNamespace(current.name)];
+          if (slot !== undefined) return slot;
+        }
+        return -1;
+      });
+      for (let v = 0; v < count; v++) {
+        for (let k = 0; k < 4; k++) {
+          const slot = slots[index.getComponent(v, k)] ?? -1;
+          bones[v * 4 + k] = slot;
+          const w = weight.getComponent(v, k);
+          if (w <= 0) continue;
+          if (slot < 0) continue;
+          if (slot < 3) a[v * 3 + slot] += w;
+          else b[v * 2 + slot - 3] += w;
+        }
+      }
+    }
+    geometry.setAttribute('aTearA', new BufferAttribute(a, 3));
+    geometry.setAttribute('aTearB', new BufferAttribute(b, 2));
+    geometry.setAttribute('aTearBone', new BufferAttribute(bones, 4));
+  });
+}
+
+/**
+ * Skinning for a torn-off piece.
+ *
+ * A limb's copy of the rig simulates the limb and the socket it came out of;
+ * every bone further up the trunk stays wherever it was when the limb came
+ * away. Skin across the seam is weighted partly to those bones, so left alone
+ * it stays anchored to the spot the body was in and stretches after the limb
+ * as a sheet across the stage. On a limb, then, any influence from outside
+ * it is handed to the socket instead — which travels with the limb — and the
+ * seam comes away in one piece. The trunk needs nothing: the bones of a limb
+ * it has lost are children of bones it still simulates, and simply ride along.
+ */
+const TEAR_SKINBASE = /* glsl */ `
+  #ifdef USE_SKINNING
+    vec4 tearIndex = skinIndex;
+    if (uTearKeep > 0.5) {
+      float keep = uTearKeep - 1.0;
+      if (abs(aTearBone.x - keep) > 0.5) tearIndex.x = uTearSocket;
+      if (abs(aTearBone.y - keep) > 0.5) tearIndex.y = uTearSocket;
+      if (abs(aTearBone.z - keep) > 0.5) tearIndex.z = uTearSocket;
+      if (abs(aTearBone.w - keep) > 0.5) tearIndex.w = uTearSocket;
+    }
+    mat4 boneMatX = getBoneMatrix( tearIndex.x );
+    mat4 boneMatY = getBoneMatrix( tearIndex.y );
+    mat4 boneMatZ = getBoneMatrix( tearIndex.z );
+    mat4 boneMatW = getBoneMatrix( tearIndex.w );
+  #endif
+`;
+
+/**
+ * Which side of a tear a fragment is on, shared by the colour and depth passes
+ * so the shadow comes apart exactly where the body does.
+ *
+ * `tearSide` is positive on the side this piece keeps and measures how far
+ * into it the fragment is, in membership units. The seam is pushed about by
+ * noise in *bind* space, so the edge is ragged and the rag stays stuck to the
+ * body however the pieces tumble — and because the trunk and the limb read the
+ * same noise with opposite signs, their two ragged edges are one edge.
+ */
+const TEAR_GLSL = /* glsl */ `
+  uniform float uTearKeep;
+  uniform vec3 uTornA;
+  uniform vec2 uTornB;
+  uniform float uTearNoise;
+  uniform float uTearScale;
+  uniform vec4 uClip;
+  varying vec3 vTearA;
+  varying vec2 vTearB;
+  varying vec3 vWorldPos;
+
+  float tearNoise(vec3 p) {
+    return (snoise(p * uTearScale) * 0.65 + snoise(p * uTearScale * 2.7 + 11.3) * 0.35) * uTearNoise;
+  }
+
+  float tearOwn(int k) {
+    return k == 0 ? vTearA.x : k == 1 ? vTearA.y : k == 2 ? vTearA.z : k == 3 ? vTearB.x : vTearB.y;
+  }
+
+  float tearSideOf(float n) {
+    if (uTearKeep < -0.5) return 1.0;
+    if (uTearKeep < 0.5) {
+      float own = max(
+        max(vTearA.x * uTornA.x, vTearA.y * uTornA.y),
+        max(vTearA.z * uTornA.z, max(vTearB.x * uTornB.x, vTearB.y * uTornB.y))
+      );
+      return 0.5 - (own + n);
+    }
+    return tearOwn(int(uTearKeep + 0.5) - 1) + n - 0.5;
+  }
+
+  /** How far in front of the portal a fragment is; negative once it is through. */
+  float clipSideOf() {
+    if (dot(uClip.xyz, uClip.xyz) < 0.5) return 1e3;
+    return dot(vWorldPos, uClip.xyz) - uClip.w;
+  }
+`;
+
+/** The vertex half of the tear: membership through, and the posed world point. */
+const TEAR_VERTEX_DECL = /* glsl */ `
+  attribute vec3 aTearA;
+  attribute vec2 aTearB;
+  attribute vec4 aTearBone;
+  uniform float uTearKeep;
+  uniform float uTearSocket;
+  varying vec3 vTearA;
+  varying vec2 vTearB;
+  varying vec3 vWorldPos;
+`;
+const TEAR_VERTEX_MAIN = /* glsl */ `
+  vTearA = aTearA;
+  vTearB = aTearB;
+  vWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+`;
 
 /**
  * Which joints each half of a cut body simulates.
@@ -215,6 +399,14 @@ export class Dummy {
     this._sunk = false;
     /** Where the last cut opened, in world space. Read by whatever made it. */
     this.cutPoint = new Vector3();
+    /** The limbs that have been torn off it, by `TEAR_REGIONS` name — see `tear`. */
+    this.torn = new Set();
+    /** How close each seam is to giving, 0..1, by region slot — see `strain`. */
+    this._strain = [0, 0, 0, 0, 0];
+    /** The look of the seams and the wounds; whoever is pulling it apart hands it in. */
+    this._tearLook = null;
+    /** Seconds of simulation this body has seen — the seams flicker on it. */
+    this._clock = 0;
 
     this.root = new Group();
     this.root.name = 'Dummy';
@@ -250,6 +442,8 @@ export class Dummy {
 
     // Before the first part, because every part's uniforms are sized off it.
     this._measureBind(model);
+    // And before its first draw: the shader reads the attributes this writes.
+    tagTearRegions(model);
 
     /**
      * The body, as one or two pieces of it.
@@ -395,6 +589,10 @@ export class Dummy {
       ragdoll: null,
       /** The joint nearest the cut — where this half was parted. */
       cutBone: null,
+      /** The limb this piece is, once one has been torn off; null for the trunk. */
+      region: null,
+      /** When this piece last came apart, on `_clock` — its wounds cool from then. */
+      tornAt: -1e3,
       /** The pose the rig arrived in, one entry per bone. See `_restPose`. */
       rest: []
     };
@@ -459,7 +657,34 @@ export class Dummy {
       uInteriorEmissive: { value: cut.interiorEmissive },
       uCutEdgeColor: { value: getColor(cut.edgeColor).clone() },
       uCutEdgeEmissive: { value: cut.edgeEmissive },
-      uCutEdgeWidth: { value: cut.edgeWidth * this._bindHeight }
+      uCutEdgeWidth: { value: cut.edgeWidth * this._bindHeight },
+
+      /** -1 while the body is whole; 0 for the trunk once a limb is off; slot + 1 for a limb. */
+      uTearKeep: { value: -1 },
+      /** On a limb: the skeleton index of the socket it came out of — see `TEAR_SKINBASE`. */
+      uTearSocket: { value: 0 },
+      /** 1 for each region that has been torn off, by slot. */
+      uTornA: { value: new Vector3() },
+      uTornB: { value: new Vector2() },
+      /** How close each seam is to giving, by slot — the glow before the tear. */
+      uStrainA: { value: new Vector3() },
+      uStrainB: { value: new Vector2() },
+      uTearNoise: { value: 0.3 },
+      uTearScale: { value: 14 / this._bindHeight },
+      uTearEdgeWidth: { value: 0.08 },
+      uTearMeat: { value: new Color(0.1, 0.01, 0.01) },
+      uTearMeatEmissive: { value: 0.4 },
+      uTearHot: { value: new Color(1, 0.6, 0.2) },
+      uTearHotEmissive: { value: 6 },
+      uTearVeins: { value: 1 },
+      uTearTime: { value: 0 },
+      /** How hot this piece's wounds still are, 1 on the frame it tore. */
+      uTearHeat: { value: 1 },
+      /** A portal this piece is being drawn through: (normal, offset) in world; zero for none. */
+      uClip: { value: new Vector4() },
+      uClipColor: { value: new Color(1, 0.6, 0.2) },
+      uClipGlow: { value: 0 },
+      uClipWidth: { value: 0.06 }
     };
   }
 
@@ -511,16 +736,17 @@ export class Dummy {
           shader.vertexShader = shader.vertexShader
             .replace(
               '#include <common>',
-              '#include <common>\nvarying vec3 vBodyPos;\nvarying vec3 vBindPos;'
+              `#include <common>\nvarying vec3 vBodyPos;\nvarying vec3 vBindPos;\n${TEAR_VERTEX_DECL}`
             )
             // The posed vertex is taken at the projection, which is the one
             // point in the chain that is always past the skinning: the noise
             // then rides the pose rather than the bind, and a corpse does not
             // burn in a pattern that slides over it while it settles. The bind
             // vertex is the attribute itself, before a bone has touched it.
+            .replace('#include <skinbase_vertex>', TEAR_SKINBASE)
             .replace(
               '#include <project_vertex>',
-              'vBodyPos = transformed;\nvBindPos = position;\n#include <project_vertex>'
+              `vBodyPos = transformed;\nvBindPos = position;\n${TEAR_VERTEX_MAIN}\n#include <project_vertex>`
             );
 
           shader.fragmentShader = shader.fragmentShader
@@ -545,7 +771,21 @@ export class Dummy {
                uniform vec3 uCutEdgeColor;
                uniform float uCutEdgeEmissive;
                uniform float uCutEdgeWidth;
-               ${noiseGLSL}`
+               uniform vec3 uStrainA;
+               uniform vec2 uStrainB;
+               uniform float uTearEdgeWidth;
+               uniform vec3 uTearMeat;
+               uniform float uTearMeatEmissive;
+               uniform vec3 uTearHot;
+               uniform float uTearHotEmissive;
+               uniform float uTearVeins;
+               uniform float uTearTime;
+               uniform float uTearHeat;
+               uniform vec3 uClipColor;
+               uniform float uClipGlow;
+               uniform float uClipWidth;
+               ${noiseGLSL}
+               ${TEAR_GLSL}`
             )
             // Both discards as early as the chunk list allows: half of a cut
             // body is not there at all, and there is no sense shading it.
@@ -559,6 +799,16 @@ export class Dummy {
                  ? 1.0
                  : (dot(vBindPos, uCutNormal) - uCutOffset) * uCutSide;
                if (cutSide < 0.0) discard;
+
+               // Torn: the piece keeps its own side of the ragged seam. And
+               // drawn through a portal: whatever is past it is somewhere else.
+               // Only paid for on a body something is pulling apart.
+               float strainAny = max(max(uStrainA.x, uStrainA.y), max(uStrainA.z, max(uStrainB.x, uStrainB.y)));
+               float tearN = (uTearKeep > -0.5 || strainAny > 0.0) ? tearNoise(vBindPos) : 0.0;
+               float tearSide = tearSideOf(tearN);
+               if (tearSide < 0.0) discard;
+               float clipSide = clipSideOf();
+               if (clipSide < 0.0) discard;
 
                float burn = clamp(fbm3(vBodyPos * uDetail) * 0.5 + 0.5, 0.0, 1.0);
                if (burn < uDissolve) discard;`
@@ -598,6 +848,54 @@ export class Dummy {
                  float edge = 1.0 - smoothstep(0.0, max(1e-4, uEdgeWidth), burn - uDissolve);
                  totalEmissiveRadiance +=
                    uEdgeColor * edge * uEdgeEmissive * step(1e-4, uDissolve);
+               }
+               {
+                 // A seam about to give: a line of heat exactly where the limb
+                 // will come away, and veins of it cracking out into the limb
+                 // ahead of the tear — read off the same membership and the
+                 // same noise as the tear itself, so it is a forecast.
+                 if (strainAny > 0.0) {
+                   float glow = 0.0;
+                   for (int k = 0; k < 5; k++) {
+                     float s = k == 0 ? uStrainA.x : k == 1 ? uStrainA.y : k == 2 ? uStrainA.z : k == 3 ? uStrainB.x : uStrainB.y;
+                     if (s <= 0.0) continue;
+                     float m = tearOwn(k) + tearN - 0.5;
+                     // Squares written out: pow() of a negative base is NaN on
+                     // D3D, and one NaN texel is a black frame once bloom has it.
+                     float mb = m / max(uTearEdgeWidth, 1e-3);
+                     float band = exp(-mb * mb);
+                     float vein = pow(max(0.0, 1.0 - abs(snoise(vBindPos * uTearScale * 2.4 + float(k) * 7.1))), 12.0);
+                     float mr = m / (0.05 + 0.16 * s);
+                     float reach = smoothstep(-0.04, 0.06, m) * exp(-mr * mr);
+                     glow += s * s * band + s * vein * reach * uTearVeins;
+                   }
+                   float flicker = 0.8 + 0.2 * sin(uTearTime * 41.0 + vBindPos.y * uTearScale * 3.0);
+                   totalEmissiveRadiance += uTearHot * glow * uTearHotEmissive * flicker;
+                 }
+
+                 // A wound: the torn edge still hot, and the inside of the
+                 // shell — the back faces the hole shows — painted as meat,
+                 // hottest where it was torn.
+                 bool opened = uTearKeep > -0.5 || clipSide < 1e2;
+                 // White-hot on the frame it tears, cooling to a rim of embers.
+                 if (uTearKeep > -0.5) {
+                   float lip = 1.0 - smoothstep(0.0, max(uTearEdgeWidth, 1e-4), tearSide);
+                   float ember = 0.75 + 0.25 * snoise(vBindPos * uTearScale * 3.0 + uTearTime * 2.0);
+                   totalEmissiveRadiance += uTearHot * lip * uTearHotEmissive * mix(0.18 * ember, 1.0, uTearHeat);
+                 }
+                 if (opened && !gl_FrontFacing) {
+                   float fibre = snoise(vBindPos * uTearScale * vec3(1.0, 5.0, 1.0)) * 0.5 + 0.5;
+                   diffuseColor.rgb = uTearMeat * (0.55 + 0.6 * fibre);
+                   float near = 1.0 - smoothstep(0.0, 0.12, tearSide);
+                   totalEmissiveRadiance += uTearMeat * uTearMeatEmissive * (0.5 + fibre)
+                     + uTearHot * near * near * uTearHotEmissive * 0.25 * uTearHeat;
+                 }
+
+                 // Going through a portal: the rim of it burns on the body.
+                 if (clipSide < 1e2) {
+                   float rim = 1.0 - smoothstep(0.0, max(uClipWidth, 1e-4), clipSide);
+                   totalEmissiveRadiance += uClipColor * rim * uClipGlow;
+                 }
                }`
             );
         });
@@ -625,15 +923,19 @@ export class Dummy {
 
     this.environment.registerShadowCasterWithPatch(material, (shader) => {
       Object.assign(shader.uniforms, part.uniforms);
-      shader.vertexShader = `varying vec3 vBindPos;\n${shader.vertexShader}`.replace(
-        '#include <begin_vertex>',
-        '#include <begin_vertex>\nvBindPos = position;'
-      );
+      shader.vertexShader = `varying vec3 vBindPos;\n${TEAR_VERTEX_DECL}\n${shader.vertexShader}`
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBindPos = position;')
+        .replace('#include <skinbase_vertex>', TEAR_SKINBASE)
+        .replace('#include <project_vertex>', `${TEAR_VERTEX_MAIN}\n#include <project_vertex>`);
       shader.fragmentShader =
-        `uniform float uCutSide;\nuniform vec3 uCutNormal;\nuniform float uCutOffset;\nvarying vec3 vBindPos;\n${shader.fragmentShader}`.replace(
+        `uniform float uCutSide;\nuniform vec3 uCutNormal;\nuniform float uCutOffset;\nvarying vec3 vBindPos;\n${noiseGLSL}\n${TEAR_GLSL}\n${shader.fragmentShader}`.replace(
           '#include <alphatest_fragment>',
           `#include <alphatest_fragment>
-           if (uCutSide != 0.0 && (dot(vBindPos, uCutNormal) - uCutOffset) * uCutSide < 0.0) discard;`
+           if (uCutSide != 0.0 && (dot(vBindPos, uCutNormal) - uCutOffset) * uCutSide < 0.0) discard;
+           // The same ragged seam and the same portal as the colour pass, or a
+           // torn-off arm would go on casting a whole body's shadow.
+           if (uTearKeep > -0.5 && tearSideOf(tearNoise(vBindPos)) < 0.0) discard;
+           if (clipSideOf() < 0.0) discard;`
         );
     });
 
@@ -686,6 +988,28 @@ export class Dummy {
       u.uInteriorEmissive.value = cut.interiorEmissive;
       u.uCutEdgeColor.value.copy(getColor(cut.edgeColor));
       u.uCutEdgeEmissive.value = cut.edgeEmissive;
+
+      // The seams, and the wounds once they give: whoever is pulling the body
+      // apart supplies the look, read live like every other colour here.
+      const s = this._strain;
+      u.uStrainA.value.set(s[0], s[1], s[2]);
+      u.uStrainB.value.set(s[3], s[4]);
+      u.uTearTime.value = this._clock;
+      u.uTearHeat.value = Math.exp(-(this._clock - part.tornAt) * 2.2);
+      const tear = this._tearLook;
+      if (tear) {
+        u.uTearNoise.value = tear.tearNoise;
+        u.uTearScale.value = tear.tearNoiseScale / this._bindHeight;
+        u.uTearEdgeWidth.value = tear.tearEdge;
+        u.uTearMeat.value.copy(getColor(tear.colorMeat));
+        u.uTearMeatEmissive.value = tear.meatGlow;
+        u.uTearHot.value.copy(getColor(tear.colorSeam));
+        u.uTearHotEmissive.value = tear.seamGlow;
+        u.uTearVeins.value = tear.veins;
+        u.uClipColor.value.copy(getColor(tear.colorSeam));
+        u.uClipGlow.value = tear.portalRimGlow;
+        u.uClipWidth.value = tear.portalRimWidth;
+      }
     }
   }
 
@@ -713,7 +1037,16 @@ export class Dummy {
     const part = this.parts[0];
     part.ragdoll = null;
     part.cutBone = null;
+    part.region = null;
     part.uniforms.uCutSide.value = 0;
+    // Whole again: no seams straining, nothing torn, no portal round it.
+    this._shaped(part, false);
+    this.torn.clear();
+    this._strain.fill(0);
+    part.uniforms.uTearKeep.value = -1;
+    part.uniforms.uTornA.value.set(0, 0, 0);
+    part.uniforms.uTornB.value.set(0, 0);
+    part.uniforms.uClip.value.set(0, 0, 0, 0);
     this._castShadows(true);
     // And whatever the last *fall* left behind, which is not the clip's to undo.
     // `Ragdoll#_pose` writes the hips' local position, and the idle clip has no
@@ -942,6 +1275,204 @@ export class Dummy {
   /** Let go of one joint, or of all of them. The body falls on from wherever it is. */
   unpin(joint = null) {
     for (const part of this.parts) part.ragdoll?.unpin(joint);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* being torn apart                                                    */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Where one joint is right now, in the world.
+   *
+   * Off whichever piece's solver owns it once the body is down — the particle,
+   * which is exactly where the solver put it this frame — and off the posed
+   * skeleton while it is still standing.
+   *
+   * @param {string} name namespace-stripped joint name
+   * @param {Vector3} out written in place
+   * @returns {Vector3|null}
+   */
+  joint(name, out) {
+    for (const part of this.parts) {
+      if (part.ragdoll?.joint(name, out)) return out;
+    }
+    const bone = this.parts[0].bones.get(name);
+    if (!bone) return null;
+    bone.updateWorldMatrix(true, false);
+    return bone.getWorldPosition(out);
+  }
+
+  /**
+   * The world rotation of one joint's bone, on whichever piece owns it.
+   *
+   * What something wound round a limb needs to stay wound round it: a frame
+   * that turns with the bone, so a chain does not slide round the arm as the
+   * arm rolls.
+   *
+   * @param {string} name namespace-stripped joint name
+   * @param {import('three').Quaternion} out written in place
+   * @returns {import('three').Quaternion|null}
+   */
+  jointQuaternion(name, out) {
+    let owner = this.parts[0];
+    for (const part of this.parts) {
+      if (part.ragdoll?.index.has(name)) {
+        owner = part;
+        break;
+      }
+    }
+    const bone = owner.bones.get(name);
+    if (!bone) return null;
+    bone.updateWorldMatrix(true, false);
+    return bone.getWorldQuaternion(out);
+  }
+
+  /**
+   * How close one seam is to giving, 0..1 — the glow before a limb comes off.
+   *
+   * Monotonic within a life: a seam that has started to give does not heal
+   * because whatever is pulling on it eased off for a frame.
+   *
+   * @param {string} region a `TEAR_REGIONS` name
+   * @param {number} amount 0..1
+   * @param {object} look the tear's look — see `settings.chains.tear`
+   */
+  strain(region, amount, look) {
+    const r = TEAR_REGIONS[region];
+    if (!r || this.state === 'gone') return;
+    this._tearLook = look;
+    if (this.torn.has(region)) return;
+    const want = amount < 0 ? 0 : amount > 1 ? 1 : amount;
+    if (want > this._strain[r.slot]) this._strain[r.slot] = want;
+  }
+
+  /**
+   * Let a limb be dragged out of its socket by up to `slack` metres.
+   *
+   * See `Ragdoll#loosen`: the socket stops being a rod and becomes a rope, and
+   * the skin across it stretches over the gap. Does nothing to a body still on
+   * its feet (there is no solver to loosen) or to a limb already off.
+   *
+   * @param {string} region a `TEAR_REGIONS` name
+   * @param {number} slack metres
+   */
+  loosen(region, slack) {
+    const r = TEAR_REGIONS[region];
+    if (!r || this.torn.has(region)) return;
+    this.parts[0].ragdoll?.loosen(r.root, slack, REGION_JOINTS[region]);
+  }
+
+  /**
+   * Tear one limb off, mid-fall.
+   *
+   * The same move as the cut, generalised from one plane to the rig's own
+   * seams. The body as it is posed this instant is cloned; the clone is told
+   * to keep only the limb (`uTearKeep`) and the trunk to keep everything that
+   * has not been torn away (`uTornA/B`) — a threshold on the skin-weight
+   * membership `tagTearRegions` wrote, roughened by noise, so the two pieces
+   * get complementary halves of one ragged seam. The back faces a hole shows
+   * are painted as meat by the same trick the cut uses.
+   *
+   * Each piece is then given a solver of its own, built off the pose it is
+   * in and carrying the velocity it had (`Ragdoll#inherit`), so nothing stops
+   * dead on the frame it parts. The limb's solver includes the socket joint it
+   * came out of — the skin across a joint is weighted to both sides of it, and
+   * a socket left frozen in the air where the trunk was would drag that skin
+   * after the limb across the whole stage. The trunk's copy of the limb's root
+   * is put back in its socket, so the stump snaps shut rather than staying
+   * stretched toward an arm that is no longer there.
+   *
+   * @param {string} region a `TEAR_REGIONS` name
+   * @param {object} [look] the tear's look — see `strain`
+   * @returns {boolean} false if there was nothing to tear (still standing,
+   *   already cut, already off, or no solver)
+   */
+  tear(region, look = this._tearLook) {
+    const r = TEAR_REGIONS[region];
+    if (!r || this.torn.has(region) || this.sliced) return false;
+    if (this.state !== 'dead' && this.state !== 'burning') return false;
+    const trunk = this.parts[0];
+    const whole = trunk.ragdoll;
+    if (!whole?.valid) return false;
+    if (look) this._tearLook = look;
+
+    this.root.updateWorldMatrix(true, true);
+    const model = cloneRigged(trunk.model);
+    this.root.add(model);
+    const limb = this._makePart(model);
+    limb.region = region;
+    this.parts.push(limb);
+    this.root.updateWorldMatrix(true, true);
+    this.torn.add(region);
+
+    limb.ragdoll = new Ragdoll(limb.bones, { include: new Set([r.socket, ...r.joints]) });
+    model.traverse((node) => {
+      if (!node.isSkinnedMesh) return;
+      const socket = node.skeleton.bones.findIndex((bone) => stripNamespace(bone.name) === r.socket);
+      if (socket >= 0) limb.uniforms.uTearSocket.value = socket;
+    });
+    limb.ragdoll.inherit(whole);
+
+    const gone = new Set();
+    for (const name of this.torn) for (const joint of TEAR_REGIONS[name].joints) gone.add(joint);
+    trunk.ragdoll = new Ragdoll(trunk.bones, { include: new Set(JOINT_NAMES.filter((name) => !gone.has(name))) });
+    trunk.ragdoll.inherit(whole);
+
+    // The stump closes: the trunk's copy of the root goes back in its socket.
+    for (const entry of trunk.rest) {
+      if (stripNamespace(entry.bone.name) === r.root) entry.bone.position.copy(entry.position);
+    }
+
+    this._strain[r.slot] = 0;
+    limb.tornAt = this._clock;
+    trunk.tornAt = this._clock;
+    for (const part of this.parts) {
+      this._shaped(part, true);
+      const u = part.uniforms;
+      u.uTearKeep.value = part.region ? TEAR_REGIONS[part.region].slot + 1 : 0;
+      u.uTornA.value.set(+this.torn.has('head'), +this.torn.has('armL'), +this.torn.has('armR'));
+      u.uTornB.value.set(+this.torn.has('legL'), +this.torn.has('legR'));
+    }
+    return true;
+  }
+
+  /**
+   * Draw one piece of the body through a portal: everything behind the plane
+   * is not drawn, and the rim of it burns where the portal crosses the body.
+   *
+   * @param {string|null} region the limb, or null for the trunk
+   * @param {Vector3|null} normal unit, pointing *out* of the portal; null to clear
+   * @param {Vector3} [point] any point on the portal's plane
+   */
+  clip(region, normal, point = null) {
+    for (const part of this.parts) {
+      if (part.region !== region) continue;
+      const u = part.uniforms.uClip.value;
+      if (!normal) u.set(0, 0, 0, 0);
+      else u.set(normal.x, normal.y, normal.z, point ? normal.dot(point) : 0);
+      if (normal) this._shaped(part, true);
+    }
+  }
+
+  /**
+   * Out of the depth prepass, or back into it.
+   *
+   * The prepass draws `LAYER.WORLD` with one override material, which knows
+   * nothing of a tear or a portal: a torn limb would go on writing the whole
+   * body's depth — and its copy of the trunk, frozen where the body was — and
+   * every soft particle and lens on the stage would be cut against a body that
+   * is not there. `LAYER.SHAPED` is the layer for exactly this: lit, shadowed
+   * through its own depth material, and left out of the prepass.
+   */
+  _shaped(part, on) {
+    part.model.traverse((node) => {
+      if (node.isMesh || node.isSkinnedMesh) node.layers.set(on ? LAYER.SHAPED : LAYER.WORLD);
+    });
+  }
+
+  /** Keep a corpse from starting to burn while something still has hold of it. */
+  hold() {
+    if (this.state === 'dead') this.timer = 0;
   }
 
   /**
@@ -1189,6 +1720,7 @@ export class Dummy {
    */
   update(dt, watch = null) {
     if (this.state === 'gone') return;
+    this._clock += dt;
     // Frozen: the statue standing in for it is drawn by whoever froze it, and
     // the body waits, hidden, for `vanish`. Hidden here rather than in
     // `freeze`: the field steps right after the abilities do, so the swap

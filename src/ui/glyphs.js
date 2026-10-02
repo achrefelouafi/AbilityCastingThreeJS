@@ -210,7 +210,34 @@ const SHARK = WRAP(`
   <path d="M38 90L42 78M62 90L58 78"/>
 `);
 
+/**
+ * Chains of Penance — a body spread on four chains, out to four portals.
+ *
+ * The one sigil that is *held*: a small figure in the middle with its arms
+ * and legs pulled out to the corners, and at each corner a ring with a
+ * second inside it — a portal — that its chain runs back into. The chains
+ * are drawn as alternating dashes so they read as links, not as rope, and
+ * the figure's limbs stop just short of where they meet it: the gap is the
+ * tear, and at 34px it is what says this one takes things apart.
+ */
+const CHAINS = WRAP(`
+  <circle cx="13" cy="13" r="8"/>
+  <circle cx="13" cy="13" r="3.5"/>
+  <circle cx="87" cy="13" r="8"/>
+  <circle cx="87" cy="13" r="3.5"/>
+  <circle cx="13" cy="87" r="8"/>
+  <circle cx="13" cy="87" r="3.5"/>
+  <circle cx="87" cy="87" r="8"/>
+  <circle cx="87" cy="87" r="3.5"/>
+  <path d="M19 19L34 34M81 19L66 34M19 81L36 64M81 81L64 64" stroke-dasharray="5 3.4"/>
+  <circle cx="50" cy="36" r="6"/>
+  <path d="M50 43V60"/>
+  <path d="M46 46L39 39M54 46L61 39"/>
+  <path d="M47 63L41 69M53 63L59 69"/>
+`);
+
 export const ELEMENT_SIGILS = {
+  chains: CHAINS,
   shark: SHARK,
   flux: FLUX,
   glacial: GLACIAL,

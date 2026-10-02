@@ -1277,6 +1277,8 @@ export class App {
     // out of it.
     this.dummies.update(dt, this.character.position);
     this.dummies.applyHits(this.abilities.active);
+    // Anything drawn onto a body is drawn off the pose it has just been given.
+    this.abilities.lateUpdate(dt);
     this.particles.flush(this.elapsed);
     this.decals.update(dt);
     this.bursts.update(dt);

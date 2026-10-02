@@ -5,23 +5,23 @@ A skillshot VFX sandbox built with **Three.js**, **Vite** and hand-written **GLS
 ![three.js r185](https://img.shields.io/badge/three.js-r185-000000?logo=three.js&logoColor=white)
 ![Vite 8.1](https://img.shields.io/badge/Vite-8.1-646CFF?logo=vite&logoColor=white)
 ![hand-written GLSL](https://img.shields.io/badge/shaders-hand--written%20GLSL-5586A4)
-![10 abilities](https://img.shields.io/badge/abilities-10-9dff2b)
-![1,877 live controls](https://img.shields.io/badge/live%20controls-1%2C877-a878f0)
+![11 abilities](https://img.shields.io/badge/abilities-11-9dff2b)
+![2,001 live controls](https://img.shields.io/badge/live%20controls-2%2C001-a878f0)
 ![procedural](https://img.shields.io/badge/geometry-procedural-ff4a2a)
 
 ![The Serpent Tide Field: a phoenix of fire climbing out of a pyre, with three serpents of flame winding round the scorched crust under it](docs/screenshots/phoenix.jpg)
 
-Ten abilities and three ways to aim them. Three are **line casts**: press the key to arm, a
-League-of-Legends style arrow appears on the ground and swings with the mouse, click to fire. Five
+Eleven abilities and three ways to aim them. Three are **line casts**: press the key to arm, a
+League-of-Legends style arrow appears on the ground and swings with the mouse, click to fire. Six
 are **far casts**: the arrow is replaced by a circle with a deliberately thick boundary that follows
 the cursor and answers the only question a ground-targeted AoE has to answer before you commit — how
-much space is this going to take. One of those is **targeted**: its circle locks onto the body under
-the cursor instead, because what it asks is not *where* but *who*. The other two are **summons**:
+much space is this going to take. Two of those are **targeted**: the circle locks onto the body under
+the cursor instead, because what they ask is not *where* but *who*. The other two are **summons**:
 press the key and a construct deploys and takes the controls; press it again to recall it.
 
 ---
 
-## The ten abilities
+## The eleven abilities
 
 The frames on this page are the renderer's own output, captured from the running sandbox at the
 moment the cast peaks. No compositing, no touch-up, and nothing in shot that the app does not draw
@@ -242,6 +242,37 @@ fires early enough for the body to be at the top of its kick when it does. And t
 parented to the shark — it is **held**: one joint pinned in the jaw (`Ragdoll#pin`) and the rest of
 it hanging, swinging and flailing under gravity through the head-shake and the death roll.
 
+**L — Chains of Penance** · <sub>far cast, targeted</sub> — the circle locks onto one body, and that
+body is taken apart. Four apertures inscribe themselves in the air round it, two more in the floor
+at its feet and one under it — a stylus of white light runs round each and leaves gold filigree
+behind it, a band of glyphs, an eight-pointed star, then an iris of black lacquer turns open on a
+**tunnel**: rings of rune light at increasing depth, found by sliding the view ray into the portal as
+far as each ring's depth, so the hole shears off to one side as the camera moves and reads as a hole
+from every angle. A seal is cut into the stone under the body with a spoke run out to every one.
+
+A chain is thrown out of each, barbed head first, arcing, a wave thrown down it, homing on a limb —
+and **winds itself round it**. The coil is measured in the bone's own frame on the frame it lands, so
+it turns with the arm rather than sliding round it. The first to land knocks the body off its feet;
+together they haul it up and hold it spread in the air, every limb pinned out toward its own portal
+(`Ragdoll#pin`), the legs down to the two in the floor. Then they haul, in ratchets: each one a jerk
+that sends a wave and a pulse of heat down every chain from its portal. The sockets give —
+`Ragdoll#loosen` turns a joint's bonds from rods into ropes and *places* the bone where its particle
+went, so the skin across the shoulder visibly stretches over the gap — and the seams the limbs are
+about to come away along light up, veins of heat cracking out from them (`Dummy#strain`).
+
+Then the **quartering**: arms, legs, then the head, one after another (`Dummy#tear`). A tear is the
+cut generalised from one plane to the rig's own seams — each vertex's share of a limb, read off its
+skin weights, thresholded at a half and roughened with noise, so the trunk and the limb get
+complementary halves of one ragged edge — and each piece gets its own solver, carrying the speed it
+had. The wound is white-hot on the frame it opens and cools to a rim of embers. Every limb is dragged
+straight back through its own portal and **cut off by it** as it goes (`Dummy#clip`); the chest chain
+lets go and whips home, and the waist chain takes the trunk down through the floor. Every portal
+shuts behind what it took, and the blood is left drying on the seal.
+
+Nothing in it is loaded: the links are a tube swept round a stadium and drawn in one instanced draw,
+forged iron with runes etched down their outside faces and heat run up them from the portal; the
+hooks, the portals, the seal and the blood are procedural too.
+
 ---
 
 ## One of them, up close
@@ -264,7 +295,7 @@ everywhere. When the field burns out the bird flares, lifts, and goes to embers 
 feathers first.
 
 Everything you can see is generated. The only meshes on disk are the character, the target
-dummy, the drone, the bot, the phoenix and the shark (with its rock): the crystals and the obsidian flakes are procedural
+dummy, the drone, the bot, the phoenix and the shark (with its rock): the crystals, the obsidian flakes and the chains are procedural
 geometry, the phoenix's fire serpents and the flux's ligaments are strips of parameter space placed
 entirely in a vertex shader, the arrow, the targeting circle, the shard's rune and the ground marks
 are signed-distance and noise shaders, and the mist, sparks, chips and glitter are GPU particles.
@@ -274,7 +305,7 @@ dressed with, projected triplanar in world metres. Procedural noise gets you sto
 stone; it does not get you stone that looks photographed, and a floor that has just broken depends
 on the second one.
 
-**Every parameter is a live control** — 1,675 sliders and toggles, plus 202 colour pickers — and they stay live while the simulation is
+**Every parameter is a live control** — 1,783 sliders and toggles, plus 218 colour pickers — and they stay live while the simulation is
 paused. That is the point of the project: freeze a frame mid-eruption, mid-strike or mid-burn with
 **P**, then reshape the silhouette, the palette and the timing against a still image.
 
@@ -318,7 +349,7 @@ The binary assets are served from `public/` and loaded automatically at boot:
 | `public/models/diffuse.png` | The character's colour map |
 | `public/models/cast1.fbx` | Cast animation — the default for the Void Slash and the Shard |
 | `public/models/cast2.fbx` | Cast animation — the default for the Drone, the Bot, the Prison and the Maw |
-| `public/models/cast3.fbx` | Cast animation — the default for the Flux, the Serpent Tide Field and the Shield |
+| `public/models/cast3.fbx` | Cast animation — the default for the Flux, the Serpent Tide Field, the Shield and the Chains |
 | `public/models/dummy.fbx` | The target dummies' rig |
 | `public/models/drone.glb` | The Sentinel Drone's airframe |
 | `public/models/monowheelArmyBot.glb` | The Monowheel Bot's chassis |
@@ -339,7 +370,7 @@ the imported materials are converted to PBR — an FBX that *does* carry an embe
 own, since that map is authored against its own UVs.
 
 Every ability picks the clip it throws — `castAnim` in its settings block, a dropdown under **The
-cast** in its editor folder. Out of the box the Flux, the Serpent Tide Field and the Shield throw
+cast** in its editor folder. Out of the box the Flux, the Serpent Tide Field, the Shield and the Chains throw
 `cast3`, the Drone, the Bot, the Prison and the Maw throw `cast2`, the Void Slash and the
 Shard throw `cast1`, and the Glacial Shard Storm throws `cast3`. The clip is a one-shot laid over the looping idle, with `character.castBlendIn` /
 `castBlendOut` as the two edges of that overlap.
@@ -363,6 +394,7 @@ glass — it is never shown as a visible sky. The stage keeps its flat dark back
 | **V** (or **8**) | Deploy the Monowheel Bot — a summon; press again to recall it |
 | **Y** (or **9**) | Deploy the Sentinel Drone — a summon; press again to recall it |
 | **K** (or **0**) | Arm the Abyssal Maw — a targeted far cast: a rock kicks the body up, a shark takes it under |
+| **L** | Arm the Chains of Penance — a targeted far cast: chains out of portals all round it tear the body apart |
 | **WASD** / **Space** | With a summon out: drive it, and hold fire |
 | **Move the mouse** | Swing the aim arrow, or move the far-cast circle |
 | **Left click** | Cast along the arrow, or drop the circle where it is |

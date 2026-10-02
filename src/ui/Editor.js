@@ -42,6 +42,7 @@ export class Editor {
     this._buildToxic();
     this._buildPhoenix();
     this._buildShark();
+    this._buildChains();
     this._buildMonowheel();
     this._buildDrone();
     this._buildEnvironment();
@@ -1623,6 +1624,162 @@ export class Editor {
     R(light, c, 'portalLightRadius', 1, 30, 0.1, 'portal radius');
 
     this.sharkFolder = folder;
+  }
+
+  _buildChains() {
+    const folder = this.gui.addFolder('⛓  Chains of Penance');
+    const c = settings.chains;
+    const R = Editor.range;
+
+    const cast = folder.addFolder('The cast');
+    R(cast, c, 'range', 4, 60, 0.1, 'max range');
+    R(cast, c, 'minRange', 0, 12, 0.1, 'min range');
+    R(cast, c, 'zoneRadius', 0.3, 4, 0.05, 'target ring (m)');
+    R(cast, c, 'snapRadius', 0, 8, 0.05, 'locks onto bodies within (m)');
+    R(cast, c, 'speed', 4, 150, 0.5, 'run to the target (m/s)');
+    R(cast, c, 'showTime', 1, 12, 0.05, 'rite lasts at least (s)');
+    R(cast, c, 'fadeTime', 0.1, 8, 0.05, 'seal and blood fade over (s)');
+    R(cast, c, 'cooldown', 0, 15, 0.05, 'cooldown');
+    Editor.castAnimation(cast, c);
+
+    const timing = folder.addFolder('The timing');
+    R(timing, c, 'portalStagger', 0, 0.3, 0.005, 'portals open apart (s)');
+    R(timing, c, 'portalOpen', 0.05, 1.5, 0.01, 'a portal opens in (s)');
+    R(timing, c, 'fireDelay', 0, 2, 0.01, 'first chain thrown at (s)');
+    R(timing, c, 'fireStagger', 0, 0.4, 0.005, 'chains thrown apart (s)');
+    R(timing, c, 'flightTime', 0.03, 1, 0.005, 'chain flies for (s)');
+    R(timing, c, 'wrapTime', 0.02, 1, 0.005, 'winds round its limb in (s)');
+    R(timing, c, 'liftTime', 0.05, 2, 0.01, 'body hauled up in (s)');
+    R(timing, c, 'strainStart', 0.3, 4, 0.01, 'hauling begins at (s)');
+    R(timing, c, 'ratchets', 1, 6, 1, 'hauls before it gives');
+    R(timing, c, 'ratchetPeriod', 0.1, 1.5, 0.01, 'between hauls (s)');
+    R(timing, c, 'ratchetSnap', 0.01, 0.4, 0.005, 'one haul takes (s)');
+    R(timing, c, 'tearStagger', 0, 0.6, 0.005, 'limbs come away apart (s)');
+    R(timing, c, 'recoilTime', 0.05, 1.5, 0.01, 'limb dragged home in (s)');
+    R(timing, c, 'dragDelay', 0, 2, 0.01, 'trunk taken after (s)');
+    R(timing, c, 'dragTime', 0.1, 3, 0.01, 'trunk goes down in (s)');
+    R(timing, c, 'closeDelay', 0, 1, 0.01, 'portal shuts after (s)');
+    R(timing, c, 'closeTime', 0.05, 1.5, 0.01, 'shuts in (s)');
+
+    const portals = folder.addFolder('1 · The portals');
+    R(portals, c, 'portalRadius', 0.1, 1.5, 0.01, 'radius (m)');
+    R(portals, c, 'floorPortalRadius', 0.2, 2, 0.01, 'floor portal radius (m)');
+    R(portals, c, 'portalDistance', 1, 8, 0.05, 'from the body (m)');
+    R(portals, c, 'portalSpread', 0, 4, 0.05, 'random extra (m)');
+    R(portals, c, 'portalJitter', 0, 1, 0.01, 'random swing');
+    R(portals, c, 'portalMinHeight', 0, 3, 0.05, 'lowest (m)');
+    R(portals, c, 'groundSpan', 0.4, 4, 0.05, 'leg portals out (m)');
+    R(portals, c, 'blades', 3, 12, 1, 'iris blades');
+    R(portals, c, 'irisOpen', 0, 1.25, 0.01, 'iris opens');
+    R(portals, c, 'portalSpin', -4, 4, 0.01, 'filigree turn (rad/s)');
+    R(portals, c, 'tunnelDepth', 0, 6, 0.05, 'tunnel depth');
+    R(portals, c, 'tunnelSpeed', 0, 3, 0.01, 'tunnel streams');
+    R(portals, c, 'runeGlow', 0, 6, 0.05, 'tunnel runes');
+    R(portals, c, 'lineGlow', 0, 8, 0.05, 'gold');
+    R(portals, c, 'halo', 0, 3, 0.01, 'halo');
+    R(portals, c, 'voidOpacity', 0, 1, 0.01, 'void');
+    R(portals, c, 'igniteFlash', 0, 4, 0.01, 'ignition spark');
+    R(portals, c, 'warpStrength', 0, 3, 0.01, 'lens');
+    R(portals, c, 'warpSwirl', -2, 2, 0.01, 'lens swirl');
+
+    const chains = folder.addFolder('2 · The chains');
+    R(chains, c, 'linkLength', 0.04, 0.4, 0.005, 'link (m)');
+    R(chains, c, 'linkThickness', 0.4, 2, 0.01, 'link thickness');
+    R(chains, c, 'hookSize', 0.05, 1, 0.01, 'barbed head (m)');
+    R(chains, c, 'curl', 0, 3, 0.01, 'throw arc (m)');
+    R(chains, c, 'whip', 0, 1.5, 0.01, 'whip (m)');
+    R(chains, c, 'whipWaves', 0.5, 6, 0.05, 'whip waves');
+    R(chains, c, 'sag', 0, 0.6, 0.005, 'slack sag');
+    R(chains, c, 'vibration', 0, 0.15, 0.001, 'thrum (m)');
+    R(chains, c, 'vibrationFreq', 1, 60, 0.5, 'thrum (Hz)');
+    R(chains, c, 'jerkWave', 0, 0.6, 0.005, 'haul wave (m)');
+    R(chains, c, 'wrapTurns', 0.5, 6, 0.05, 'coil turns');
+    R(chains, c, 'wrapReach', 0.2, 1.5, 0.01, 'coil length');
+    R(chains, c, 'wrapRadius', 0.5, 2.5, 0.01, 'coil girth');
+    const iron = chains.addFolder('The iron');
+    R(iron, c, 'metalness', 0, 1, 0.01, 'metalness');
+    R(iron, c, 'roughness', 0, 1, 0.01, 'roughness');
+    R(iron, c, 'ironEnv', 0, 3, 0.01, 'probe');
+    R(iron, c, 'runeScale', 0.5, 10, 0.05, 'runes per link');
+    R(iron, c, 'chainRuneGlow', 0, 6, 0.05, 'rune glow');
+    R(iron, c, 'heatGlow', 0, 10, 0.05, 'heat glow');
+    R(iron, c, 'crackScale', 2, 60, 0.5, 'crust scale');
+    iron.addColor(c, 'colorIron').name('iron');
+
+    const hold = folder.addFolder('3 · The hold');
+    R(hold, c, 'hangHeight', 0.8, 4, 0.05, 'hangs at (m)');
+    R(hold, c, 'reach', 0.3, 2, 0.01, 'limbs held out');
+    R(hold, c, 'grip', 0, 0.6, 0.005, 'limb grip');
+    R(hold, c, 'waistGrip', 0, 0.8, 0.005, 'trunk grip');
+    R(hold, c, 'catchTime', 0.01, 1, 0.01, 'grip takes (s)');
+    const kick = hold.addFolder('The first chain to land');
+    R(kick, c.kick, 'impulse', 0, 10, 0.05, 'along the cast (m/s)');
+    R(kick, c.kick, 'lift', 0, 15, 0.05, 'up (m/s)');
+    R(kick, c.kick, 'spin', 0, 5, 0.05, 'tumble');
+
+    const strain = folder.addFolder('4 · The strain');
+    R(strain, c, 'stretch', 0, 0.6, 0.005, 'out of the socket (m)');
+    R(strain, c, 'reachGain', 0, 1.5, 0.01, 'each haul drags further');
+    R(strain, c, 'seamStrain', 0, 1, 0.01, 'seams glow');
+    R(strain, c.tear, 'veins', 0, 3, 0.01, 'veins of heat');
+    R(strain, c, 'jerkShake', 0, 1, 0.005, 'haul shake');
+    R(strain, c, 'strainRumble', 0, 0.3, 0.001, 'rumble');
+    R(strain, c, 'ratchetLight', 0, 150, 0.5, 'haul light');
+
+    const tear = folder.addFolder('5 · The tear');
+    R(tear, c.tear, 'tearNoise', 0, 0.48, 0.005, 'ragged seam');
+    R(tear, c.tear, 'tearNoiseScale', 2, 60, 0.5, 'seam detail');
+    R(tear, c.tear, 'tearEdge', 0.005, 0.3, 0.005, 'hot band');
+    R(tear, c.tear, 'seamGlow', 0, 20, 0.1, 'seam glow');
+    R(tear, c.tear, 'meatGlow', 0, 3, 0.01, 'wound glow');
+    tear.addColor(c.tear, 'colorSeam').name('seam');
+    tear.addColor(c.tear, 'colorMeat').name('wound');
+    R(tear, c.tear, 'portalRimGlow', 0, 20, 0.1, 'portal burn');
+    R(tear, c.tear, 'portalRimWidth', 0.005, 0.3, 0.005, 'portal burn width (m)');
+    R(tear, c, 'recoilDepth', 0, 4, 0.05, 'dragged past its portal (m)');
+    R(tear, c, 'bloodCount', 0, 600, 1, 'blood');
+    R(tear, c, 'bloodSpeed', 0, 15, 0.05, 'blood speed (m/s)');
+    R(tear, c, 'goreCount', 0, 40, 1, 'gore');
+    R(tear, c, 'emberCount', 0, 300, 1, 'embers');
+    R(tear, c, 'mistCount', 0, 40, 1, 'mist');
+    R(tear, c, 'tearShake', 0, 1.5, 0.01, 'shake');
+    R(tear, c, 'tearLight', 0, 200, 1, 'light punch');
+    R(tear, c, 'tearFlash', 0, 0.5, 0.005, 'screen flash');
+
+    const seal = folder.addFolder('6 · The seal');
+    R(seal, c, 'sealRadius', 0.3, 5, 0.05, 'radius (m)');
+    R(seal, c, 'sealGlow', 0, 6, 0.05, 'glow');
+    R(seal, c, 'sealDraw', 0.05, 3, 0.01, 'inscribed in (s)');
+    R(seal, c, 'bloodPool', 0, 4, 0.05, 'blood pool (m)');
+    R(seal, c, 'bloodGrow', 0.1, 6, 0.05, 'spreads over (s)');
+
+    const air = folder.addFolder('The air round it');
+    R(air, c, 'sparkRate', 0, 200, 1, 'sparks');
+    R(air, c, 'emberRate', 0, 120, 1, 'embers per portal');
+    R(air, c, 'smokeRate', 0, 40, 0.5, 'smoke per portal');
+
+    const palette = folder.addFolder('The palette');
+    palette.addColor(c, 'colorGold').name('gold');
+    palette.addColor(c, 'colorCore').name('white heat');
+    palette.addColor(c, 'colorHeat').name('heat');
+    palette.addColor(c, 'colorDeep').name('crimson');
+    palette.addColor(c, 'colorVoid').name('void');
+    palette.addColor(c, 'colorLacquer').name('lacquer');
+    palette.addColor(c, 'colorBlood').name('blood');
+    palette.addColor(c, 'colorBloodDark').name('blood, dark');
+    palette.addColor(c, 'colorEmber').name('embers');
+    palette.addColor(c, 'colorSmoke').name('smoke');
+    palette.addColor(c, 'colorReticle').name('target lock');
+    palette.addColor(c, 'colorLocked').name('target locked');
+
+    const light = folder.addFolder('The light');
+    R(light, c, 'lightIntensity', 0, 80, 0.5, 'intensity');
+    R(light, c, 'lightRadius', 1, 30, 0.1, 'radius');
+    light.addColor(c, 'lightColor').name('colour');
+    R(light, c, 'portalLight', 0, 80, 0.5, 'portals');
+    R(light, c, 'portalLightRadius', 1, 30, 0.1, 'portal radius');
+
+    this.chainsFolder = folder;
   }
 
   _buildMonowheel() {

@@ -8,6 +8,7 @@ import { PhoenixAbility } from './PhoenixAbility.js';
 import { MonowheelAbility } from './MonowheelAbility.js';
 import { DroneAbility } from './DroneAbility.js';
 import { SharkAbility } from './SharkAbility.js';
+import { ChainsAbility } from './ChainsAbility.js';
 import { ELEMENTS } from '../config/settings.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
@@ -22,7 +23,8 @@ const ABILITY_TYPES = {
   phoenix: PhoenixAbility,
   monowheel: MonowheelAbility,
   drone: DroneAbility,
-  shark: SharkAbility
+  shark: SharkAbility,
+  chains: ChainsAbility
 };
 
 const MAX_CONCURRENT = 4;
@@ -132,6 +134,17 @@ export class AbilityManager {
         this.pools.get(ability.element).release(ability);
       }
     }
+  }
+
+  /**
+   * The second half of the frame, after the bodies have stepped.
+   *
+   * Most abilities have nothing to do here. One that draws something *onto*
+   * a body — a chain wound round a limb — has to draw it off the pose the
+   * solver has just produced, or it trails the body by a frame.
+   */
+  lateUpdate(dt) {
+    for (const ability of this.active) ability.lateUpdate?.(dt);
   }
 
   /** Cancel everything currently in flight. */

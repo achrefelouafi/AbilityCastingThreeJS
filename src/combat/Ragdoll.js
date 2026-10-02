@@ -86,6 +86,9 @@ const JOINTS = [
   ['RightToe_End', 'RightToeBase', null]
 ];
 
+/** Every joint the solver knows, in table order. */
+export const JOINT_NAMES = Object.freeze(JOINTS.map(([name]) => name));
+
 /**
  * Inverse mass. Low = heavy: the pelvis is the anchor the rest hangs off, and
  * the extremities are the parts that get thrown around.
@@ -199,6 +202,7 @@ const _cur = new Vector3();
 const _q = new Quaternion();
 const _qa = new Quaternion();
 const _delta = new Quaternion();
+const _qb = new Quaternion();
 const _basis = new Matrix4();
 
 export class Ragdoll {
@@ -246,6 +250,8 @@ export class Ragdoll {
 
     /** name → index into the particle arrays. */
     this.index = new Map();
+    /** index → name, the other way round. */
+    this.names = [];
     /** Per-joint solver state. Flat arrays: this runs every frame for every corpse. */
     this.px = [];
     this.py = [];
@@ -305,6 +311,7 @@ export class Ragdoll {
       const index = this.px.length;
 
       this.index.set(name, index);
+      this.names.push(name);
       this.px.push(position.x);
       this.py.push(position.y);
       this.pz.push(position.z);
@@ -335,7 +342,15 @@ export class Ragdoll {
         /** Resolved in the second pass below. */
         parent: null,
         staticParentQuat: null,
-        frame: null
+        frame: null,
+        /**
+         * Placed as well as aimed — see `loosen`. A joint pulled out of its
+         * socket has to take its bone with it, or the gap opens in the
+         * particles and nowhere on the mesh.
+         */
+        free: false,
+        /** The parent bone's world scale, to turn a world offset into its local one. */
+        parentScale: bone.parent ? bone.parent.getWorldScale(new Vector3()).x || 1 : 1
       });
     }
 
@@ -359,6 +374,13 @@ export class Ragdoll {
       // The aim direction is measured in world and pulled back into the bone's
       // frame, rather than read off the child's local translation — that way an
       // export with an extra node between two joints still resolves.
+      // A joint whose usual aim is not in this solver aims at whichever of its
+      // children is — the socket a torn limb carries away with it turns with
+      // the limb instead of staying frozen at the angle it came off at.
+      if (entry.aimName && !world.has(entry.aimName)) {
+        const child = this.entries.find((other) => other.parentName === entry.name);
+        if (child) entry.aimName = child.name;
+      }
       const aim = entry.aimName ? world.get(entry.aimName) : null;
       if (aim) {
         _v.copy(aim).sub(world.get(entry.name));
@@ -443,7 +465,9 @@ export class Ragdoll {
 
   /** @param {boolean} brace true for the shape-keeping extras, which pull softer. */
   _addConstraint(a, b, brace) {
-    this.constraints.push({ a, b, rest: this._distance(a, b), brace });
+    // `slack` is metres the constraint may lengthen before it pulls — 0 for
+    // every bone in a body until something takes hold of it (`loosen`).
+    this.constraints.push({ a, b, rest: this._distance(a, b), brace, slack: 0 });
   }
 
   _distance(a, b) {
@@ -649,6 +673,84 @@ export class Ragdoll {
     this.pins = this.pins.filter((p) => p.index !== index);
   }
 
+  /**
+   * Let a joint be dragged out of its socket by up to `slack` metres.
+   *
+   * Every constraint between `name` and a joint outside `keep` stops being a
+   * rod and becomes a rope: free anywhere between its rest length and `slack`
+   * past it, pulling only beyond that. `keep` is the piece the joint belongs
+   * to — an arm loosened at the shoulder stays an arm; it is the shoulder that
+   * gives. Braces count too, or the chest's cross-bracing would hold the arm
+   * in on its own.
+   *
+   * The joint is also *placed* from then on, not just aimed (`_pose`): the
+   * particle is the only thing that knows how far out of the socket it has
+   * come, and a bone that is only ever rotated would keep the mesh shut. Placed,
+   * the skin weighted across the joint stretches over the gap — which is the
+   * whole look of a limb about to come away.
+   *
+   * Safe to call every frame with a changing `slack`; 0 closes it again.
+   *
+   * @param {string} name joint, namespace-stripped
+   * @param {number} slack metres
+   * @param {Set<string>|null} [keep] joints whose bonds with `name` stay rigid
+   * @returns {boolean} false if the rig has no such joint
+   */
+  loosen(name, slack, keep = null) {
+    const index = this.index.get(name);
+    if (index === undefined) return false;
+    const amount = Math.max(0, slack);
+    for (const constraint of this.constraints) {
+      if (constraint.a !== index && constraint.b !== index) continue;
+      const other = constraint.a === index ? constraint.b : constraint.a;
+      if (keep && keep.has(this.names[other])) continue;
+      constraint.slack = amount;
+    }
+    for (const entry of this.entries) {
+      if (entry.index === index) entry.free = true;
+    }
+    this.asleep = false;
+    this._still = 0;
+    return true;
+  }
+
+  /**
+   * Carry the motion of another solver over onto this one.
+   *
+   * A body that comes apart mid-air is rebuilt as several solvers on the frame
+   * it parts, and a fresh solver starts at rest — so the pieces would stop dead
+   * in the air for a frame and then fall. Copying each shared joint's velocity
+   * across makes the parting continuous: every piece leaves with the speed it
+   * had while it was still attached. The floor and the buoyancy go with it.
+   *
+   * @param {Ragdoll} source
+   */
+  inherit(source) {
+    if (!source?.valid || !this.valid) return;
+    for (const [name, i] of this.index) {
+      const j = source.index.get(name);
+      if (j === undefined) continue;
+      this.vx[i] = source.vx[j];
+      this.vy[i] = source.vy[j];
+      this.vz[i] = source.vz[j];
+    }
+    this.floor = source.floor;
+    this.buoyancy = source.buoyancy;
+  }
+
+  /**
+   * Where one joint is, in the world, as the solver last left it.
+   *
+   * @param {string} name joint, namespace-stripped
+   * @param {Vector3} out written in place
+   * @returns {Vector3|null} null if this solver does not own the joint
+   */
+  joint(name, out) {
+    const i = this.index.get(name);
+    if (i === undefined) return null;
+    return out.set(this.px[i], this.py[i], this.pz[i]);
+  }
+
   _solvePins() {
     const a = this._pinAlpha;
     for (const pin of this.pins) {
@@ -830,12 +932,20 @@ export class Ragdoll {
       const length = Math.hypot(dx, dy, dz);
       if (length < 1e-6) continue;
 
+      // A loosened bond is a rope: slack anywhere between rest and its reach.
+      let target = rest;
+      if (constraint.slack > 0) {
+        const reach = rest + constraint.slack;
+        if (length >= rest && length <= reach) continue;
+        target = length > reach ? reach : rest;
+      }
+
       const wa = this.w[a];
       const wb = this.w[b];
       const total = wa + wb;
       if (total < 1e-6) continue;
 
-      const correction = ((length - rest) / length) * stiffness;
+      const correction = ((length - target) / length) * stiffness;
       dx *= correction;
       dy *= correction;
       dz *= correction;
@@ -969,6 +1079,17 @@ export class Ragdoll {
 
       entry.worldQuat.copy(_q);
       entry.bone.quaternion.copy(_qa.copy(parentQuat).invert().multiply(_q));
+
+      // Out of its socket: the bone goes where the particle went, measured
+      // from its parent's particle in the parent's own (scaled) frame.
+      if (entry.free && entry.parent) {
+        const p = entry.parent.index;
+        const i = entry.index;
+        _v.set(this.px[i] - this.px[p], this.py[i] - this.py[p], this.pz[i] - this.pz[p])
+          .applyQuaternion(_qb.copy(entry.parent.worldQuat).invert())
+          .multiplyScalar(1 / entry.parentScale);
+        entry.bone.position.copy(_v);
+      }
     }
   }
 }
