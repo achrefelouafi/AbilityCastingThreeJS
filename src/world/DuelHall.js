@@ -20,10 +20,13 @@ import {
   RepeatWrapping,
   SRGBColorSpace
 } from 'three';
+import { MeshSurfaceSampler } from 'three/addons/math/MeshSurfaceSampler.js';
 import { settings } from '../config/settings.js';
 import { LAYER } from '../core/Layers.js';
 import { getStoneTextures, STONE_TILE_METRES } from '../loaders/StoneTextures.js';
 import { floorHoles, MAX_FLOOR_HOLES } from './FloorHoles.js';
+import { noiseGLSL } from '../shaders/lib/noise.glsl.js';
+import { getColor } from '../utils/color.js';
 
 const MODEL_URL = './models/duel_hall.glb';
 const TEX = './textures/duelhall/';
@@ -36,6 +39,74 @@ const _q = new Quaternion();
 const _p = new Vector3();
 const _s = new Vector3();
 const _axisY = new Vector3(0, 1, 0);
+const _level = new Quaternion();
+const _tilt = new Quaternion();
+
+/**
+ * The export's top-level nodes that make up the floating platform. Everything
+ * else at the top level is the castle around it, and goes when it is switched
+ * off. The floor sigil stays: it drops onto the stone plane under the platform.
+ */
+const PLATFORM_NODES = new Set([
+  'DuelCloth',
+  'PlatformDisc',
+  'PlatformRockUnderside',
+  'GoldUnderRing_A',
+  'GoldUnderRing_B',
+  'RuneRing_A',
+  'RuneRing_B',
+  'RuneRing_C',
+  'DebrisRocks',
+  'FloorSigil'
+]);
+
+/** Castle surfaces the embers are scattered over as it burns. */
+const EMBER_SOURCES = ['HallWall', 'Dome', 'Pillars', 'WindowGlass', 'WindowFrames', 'DomeRibs', 'Balcony', 'Cornice'];
+const EMBER_COUNT = 4000;
+
+/**
+ * Width of the burning band, in units of the dissolve field. The sweep runs
+ * from -W to 1 + W so the band enters and leaves the castle completely.
+ */
+const BURN_WIDTH = 0.06;
+
+/** The hall's own floor, world y, metres — the bottom of the castle. */
+const HALL_FLOOR = -16;
+
+/** How far the rubble under the platform sinks with the castle gone, metres. */
+const DEBRIS_SINK = 14;
+
+/**
+ * Where the top rune ring goes with the castle gone. In the hall it hangs 3 m
+ * under the stage and only a metre or two past the cloth, so the platform
+ * hides most of it: the near side tucks under the edge from above, the far
+ * side goes behind it from a tilted camera — under half of it ever shows, and
+ * widening it alone does not fix the far side. Lifted to just under the stage
+ * plane and opened out a little, it circles the dais in full from any angle.
+ */
+const OPEN_RING_Y = -0.05;
+const OPEN_RING_SCALE = 1.12;
+
+/**
+ * Where on the castle the burn has reached: 0 goes first, 1 last. Mostly
+ * height — the dome lifts off and the walls burn down to the floor, and the
+ * rebuild runs the other way, floor up — broken up by noise so the front
+ * eats through the stone in tongues rather than as a level line. Shared by
+ * the castle's materials and the embers, so an ember leaves the wall at the
+ * exact moment the stone under it goes.
+ */
+const DISSOLVE_GLSL = /* glsl */ `
+#define BURN_WIDTH ${BURN_WIDTH.toFixed(3)}
+${noiseGLSL}
+float castleField(vec3 p) {
+  float h = clamp((p.y - (${HALL_FLOOR.toFixed(1)})) / 70.0, 0.0, 1.0);
+  float n = clamp(fbm3(p * 0.09) * 0.6 + 0.5, 0.0, 1.0);
+  return clamp(1.0 - (h * 0.68 + n * 0.32), 0.0, 1.0);
+}
+float castleSweep(float amount) {
+  return amount * (1.0 + 2.0 * BURN_WIDTH) - BURN_WIDTH;
+}
+`;
 
 /**
  * The Duel Hall: a floating, cloth-draped duelling platform inside a round
@@ -81,6 +152,22 @@ export class DuelHall {
     this._materials = [];
     this._textures = [];
 
+    /**
+     * The castle burn, shared by every castle material: 0 standing, 1 gone.
+     * A uniform rather than visibility so the switch never recompiles, and so
+     * the walls can burn away instead of popping.
+     */
+    this._burn = {
+      uDissolve: { value: 0 },
+      uDissolveColor: { value: new Color() }
+    };
+    /** 1 while the castle is burning away, -1 while it rebuilds. */
+    this._burnDir = settings.hall.castle ? -1 : 1;
+    /** Seconds into the current burn; parked far past the end at boot. */
+    this._burnClock = 1e4;
+    this._burnShown = settings.hall.castle ? 0 : 1;
+    this._debrisSink = 0;
+
     // Night: the hall is lit by its candles and the orrery, with the scene's cool
     // key standing in for moonlight. One warm light over the platform (the
     // orrery's sun) and a ring of candle-height fills. No shadows — the key owns
@@ -88,17 +175,20 @@ export class DuelHall {
     this.lights = [];
     const orrery = new PointLight(0xffb066, 0, 0, 2);
     orrery.position.set(0, 23, 0);
-    this.lights.push({ light: orrery, base: 600 });
+    // `open`: what each light keeps once the castle is gone. The orrery and
+    // the hall's warm fills are mostly bounce off the walls; the levitation
+    // glow belongs to the platform.
+    this.lights.push({ light: orrery, base: 600, open: 0.35 });
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
       const fill = new PointLight(0xff8a3d, 0, 0, 2);
       fill.position.set(Math.cos(a) * 24, 11, Math.sin(a) * 24);
-      this.lights.push({ light: fill, base: 240 });
+      this.lights.push({ light: fill, base: 240, open: 0.55 });
     }
     // Violet levitation glow from under the platform.
     const under = new PointLight(0x8a55ff, 0, 0, 2);
     under.position.set(0, -9, 0);
-    this.lights.push({ light: under, base: 420 });
+    this.lights.push({ light: under, base: 420, open: 1.0 });
     for (const { light } of this.lights) this.group.add(light);
   }
 
@@ -132,12 +222,23 @@ export class DuelHall {
     // Strip the instanced nodes out before anything else touches the tree.
     for (const list of Object.values(instanced)) for (const node of list) node.removeFromParent();
 
+    const onPlatform = (node) => {
+      while (node.parent && node.parent !== root) node = node.parent;
+      return PLATFORM_NODES.has(node.name);
+    };
     root.traverse((node) => {
       if (!node.isMesh) return;
       const key = node.material?.name ?? '';
-      // The stone under the cloth shares the trim look but has to open with it.
+      // The stone under the cloth shares the trim look but has to open with it,
+      // and the platform's gold has to stay when the castle's burns.
       const material =
-        node.name === 'PlatformDisc' ? this._disc : node.name === 'Oculus' ? this._nightSky : mats[key];
+        node.name === 'PlatformDisc'
+          ? this._disc
+          : node.name === 'Oculus'
+            ? this._nightSky
+            : key === 'M_Gold' && onPlatform(node)
+              ? this._platformGold
+              : mats[key];
       if (material) node.material = material;
       node.castShadow = false;
       node.receiveShadow = key === 'M_DuelCloth';
@@ -145,9 +246,20 @@ export class DuelHall {
     });
 
     this.group.add(root);
+    this._root = root;
+    // The castle gets a group of its own so it can be hidden in one go once it
+    // has burned away. `attach` keeps each node where it stands.
+    this.castle = new Group();
+    this.castle.name = 'DuelHallCastle';
+    this.group.add(this.castle);
+    for (const node of [...root.children]) {
+      if (!PLATFORM_NODES.has(node.name)) this.castle.attach(node);
+    }
     this._buildInstances(instanced, mats);
-    this._collectAnimated(root);
+    // The orrery and the light shafts have moved into the castle group.
+    this._collectAnimated(this.group);
     this._buildCandleGlow(instanced.flame);
+    this._buildEmbers();
 
     this.loaded = true;
     this.setVisible(settings.hall.enabled);
@@ -192,6 +304,8 @@ export class DuelHall {
 
   _buildMaterials(tex) {
     const track = (m) => (this._materials.push(m), m);
+    // Castle materials burn away with it (see `_patchDissolve`).
+    const castle = (m) => (this._patchDissolve(m), m);
     const stone = (color, roughness = 0.9) =>
       track(
         new MeshStandardMaterial({
@@ -250,25 +364,28 @@ export class DuelHall {
     this.godRayMaterial = this._godRayMaterial();
 
     const bannerMats = tex.banners.map((map) =>
-      track(new MeshStandardMaterial({ map, roughness: 0.75, side: DoubleSide }))
+      castle(track(new MeshStandardMaterial({ map, roughness: 0.75, side: DoubleSide })))
     );
+
+    // The platform's own gold, so the castle's can burn without it.
+    this._platformGold = track(new MeshStandardMaterial({ color: 0xf2a84a, metalness: 1, roughness: 0.3 }));
 
     const mats = {
       M_DuelCloth: cloth,
-      M_StoneWall: stone(new Color(0.62, 0.53, 0.44)),
-      M_StoneTrim: stone(new Color(0.95, 0.85, 0.72), 0.85),
-      M_StoneFloor: stone(new Color(0.42, 0.37, 0.33)),
+      M_StoneWall: castle(stone(new Color(0.62, 0.53, 0.44))),
+      M_StoneTrim: castle(stone(new Color(0.95, 0.85, 0.72), 0.85)),
+      M_StoneFloor: castle(stone(new Color(0.42, 0.37, 0.33))),
       M_PlatformRock: stone(new Color(0.32, 0.29, 0.31)),
-      M_DarkWood: track(new MeshStandardMaterial({ color: 0x2a140b, roughness: 0.5 })),
-      M_Gold: track(new MeshStandardMaterial({ color: 0xf2a84a, metalness: 1, roughness: 0.3 })),
-      M_GoldGlow: track(new MeshBasicMaterial({ color: new Color(3.2, 2.1, 1.0), fog: false })),
+      M_DarkWood: castle(track(new MeshStandardMaterial({ color: 0x2a140b, roughness: 0.5 }))),
+      M_Gold: castle(track(new MeshStandardMaterial({ color: 0xf2a84a, metalness: 1, roughness: 0.3 }))),
+      M_GoldGlow: castle(track(new MeshBasicMaterial({ color: new Color(3.2, 2.1, 1.0), fog: false }))),
       // Moonlit from outside: dim and blue-shifted.
-      M_StainedGlass: track(new MeshBasicMaterial({ map: tex.glass, color: new Color(0.5, 0.62, 1.15) })),
+      M_StainedGlass: castle(track(new MeshBasicMaterial({ map: tex.glass, color: new Color(0.5, 0.62, 1.15) }))),
       M_Wax: track(
         new MeshStandardMaterial({ color: 0xeadcb8, roughness: 0.5, emissive: 0xff9a40, emissiveIntensity: 0.6 })
       ),
       M_Flame: track(new MeshBasicMaterial({ color: new Color(5.0, 2.6, 0.9), fog: false })),
-      M_Books: track(new MeshStandardMaterial({ vertexColors: true, roughness: 0.6 })),
+      M_Books: castle(track(new MeshStandardMaterial({ vertexColors: true, roughness: 0.6 }))),
       M_RuneRingGlow: this.runeMaterial,
       M_BannerCrimson: bannerMats[0],
       M_BannerSapphire: bannerMats[1],
@@ -277,8 +394,175 @@ export class DuelHall {
     };
     // The shaft mesh has no material slot; `_collectAnimated` finds it by name.
     this._disc = disc;
-    this._nightSky = track(new MeshBasicMaterial({ color: new Color(0.35, 0.5, 1.0), fog: false }));
+    this._nightSky = castle(track(new MeshBasicMaterial({ color: new Color(0.35, 0.5, 1.0), fog: false })));
     return mats;
+  }
+
+  /**
+   * Let a castle material burn away. Fragments the sweep has passed are
+   * discarded; just ahead of it the stone chars, and right at the front it
+   * glows white-hot into `castleEdge`. Compiled in from the start, so the
+   * castle switch is a uniform change and never a recompile.
+   */
+  _patchDissolve(material) {
+    const burn = this._burn;
+    this.environment.registerShadowCasterWithPatch(
+      material,
+      (shader) => {
+        shader.uniforms.uDissolve = burn.uDissolve;
+        shader.uniforms.uDissolveColor = burn.uDissolveColor;
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', `#include <common>\nvarying vec3 vDissolveWorld;`)
+          .replace(
+            '#include <project_vertex>',
+            `#include <project_vertex>
+             vec4 dissolveWorld = vec4(transformed, 1.0);
+             #ifdef USE_INSTANCING
+               dissolveWorld = instanceMatrix * dissolveWorld;
+             #endif
+             vDissolveWorld = (modelMatrix * dissolveWorld).xyz;`
+          );
+        shader.fragmentShader = shader.fragmentShader
+          .replace(
+            '#include <common>',
+            `#include <common>
+             varying vec3 vDissolveWorld;
+             uniform float uDissolve;
+             uniform vec3 uDissolveColor;
+             ${DISSOLVE_GLSL}`
+          )
+          .replace(
+            '#include <clipping_planes_fragment>',
+            `#include <clipping_planes_fragment>
+             float burnAhead = castleField(vDissolveWorld) - castleSweep(uDissolve);
+             if (burnAhead < 0.0) discard;
+             float burning = step(1e-4, uDissolve);
+             float burnGlow = burning * (1.0 - smoothstep(0.0, BURN_WIDTH, burnAhead));
+             float burnChar = burning * (1.0 - smoothstep(0.0, BURN_WIDTH * 3.5, burnAhead));`
+          )
+          .replace(
+            '#include <tonemapping_fragment>',
+            `gl_FragColor.rgb *= 1.0 - 0.85 * burnChar;
+             gl_FragColor.rgb += uDissolveColor * (burnGlow * burnGlow * 6.0)
+                               + vec3(1.0, 0.9, 0.75) * pow(burnGlow, 7.0) * 5.0;
+             #include <tonemapping_fragment>`
+          );
+      },
+      'duelhall-dissolve'
+    );
+  }
+
+  /**
+   * Embers thrown off the burning front. Each one is pinned to a point on the
+   * castle's surface and computes, from the same field as the stone, the
+   * moment the front passes it: from then it drifts up and in on the heat and
+   * fades. Nothing is simulated — position is a function of the burn clock —
+   * so the rebuild is the same film run backwards: the embers stream back in
+   * and land on the wall just as the stone under them reforms.
+   */
+  _buildEmbers() {
+    const meshes = EMBER_SOURCES.map((name) => this.castle.getObjectByName(name)).filter((m) => m?.isMesh);
+    if (!meshes.length) return;
+    this.castle.updateMatrixWorld(true);
+    const samplers = meshes.map((mesh) => new MeshSurfaceSampler(mesh).build());
+    const areas = samplers.map((s) => s.distribution[s.distribution.length - 1]);
+    const total = areas.reduce((a, b) => a + b, 0);
+
+    const positions = new Float32Array(EMBER_COUNT * 3);
+    const seeds = new Float32Array(EMBER_COUNT * 4);
+    let i = 0;
+    samplers.forEach((sampler, m) => {
+      const count = m === samplers.length - 1 ? EMBER_COUNT - i : Math.round((areas[m] / total) * EMBER_COUNT);
+      for (let k = 0; k < count && i < EMBER_COUNT; k++, i++) {
+        sampler.sample(_p);
+        _p.applyMatrix4(meshes[m].matrixWorld);
+        positions.set([_p.x, _p.y, _p.z], i * 3);
+        seeds.set([Math.random(), Math.random(), Math.random(), Math.random()], i * 4);
+      }
+    });
+
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new BufferAttribute(positions, 3));
+    geometry.setAttribute('aSeed', new BufferAttribute(seeds, 4));
+
+    this.emberMaterial = new ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      fog: false,
+      uniforms: {
+        uClock: { value: this._burnClock },
+        uDir: { value: this._burnDir },
+        uDuration: { value: settings.hall.castleFade },
+        uLife: { value: 2.6 },
+        uSize: { value: 0.32 },
+        uAmount: { value: 1 },
+        uColor: this._burn.uDissolveColor,
+        uPixelRatio: { value: this.environment.renderer?.gl.getPixelRatio() ?? 1 }
+      },
+      vertexShader: /* glsl */ `
+        uniform float uClock;
+        uniform float uDir;
+        uniform float uDuration;
+        uniform float uLife;
+        uniform float uSize;
+        uniform float uPixelRatio;
+        attribute vec4 aSeed;
+        varying float vAlpha;
+        varying float vHeat;
+        ${DISSOLVE_GLSL}
+        void main() {
+          // When the front reaches this point, in seconds into the burn — and
+          // for a rebuild, which runs the sweep backwards, the same moment seen
+          // from the other end. Either way 'age' is how far along its path the
+          // ember is, so a rebuild flies the path in reverse.
+          float at = (castleField(position) + BURN_WIDTH) / (1.0 + 2.0 * BURN_WIDTH);
+          float released = uDir > 0.0 ? at * uDuration : (1.0 - at) * uDuration;
+          float age = uDir > 0.0 ? uClock - released : released - uClock;
+          float life = uLife * (0.55 + 0.9 * aSeed.w);
+          float k = age / life;
+
+          float t = max(age, 0.0);
+          vec3 inward = normalize(vec3(-position.x, 0.0, -position.z) + vec3(1e-4));
+          vec3 velocity = inward * (0.5 + 1.8 * aSeed.x)
+                        + vec3(0.0, 0.8 + 1.8 * aSeed.y, 0.0)
+                        + (aSeed.xzy - 0.5) * 1.6;
+          vec3 p = position + velocity * t + vec3(0.0, 0.7, 0.0) * t * t;
+          // Caught in the hot air: a lazy corkscrew that widens as it rises.
+          float swirl = t * (1.4 + aSeed.z * 1.6) + aSeed.w * 30.0;
+          p += vec3(sin(swirl), 0.0, cos(swirl)) * (0.25 + 0.5 * aSeed.y) * t;
+
+          float alive = step(0.0, age) * step(k, 1.0);
+          vAlpha = alive * smoothstep(0.0, 0.06, k) * pow(1.0 - clamp(k, 0.0, 1.0), 1.4);
+          vHeat = 1.0 - clamp(k, 0.0, 1.0);
+
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          float size = uSize * (0.45 + aSeed.z) * mix(0.35, 1.0, vHeat);
+          gl_PointSize = alive * size * uPixelRatio * (projectionMatrix[1][1] * 300.0) / -mv.z;
+          gl_Position = alive > 0.5 ? projectionMatrix * mv : vec4(2.0, 2.0, 2.0, 1.0);
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform float uAmount;
+        uniform vec3 uColor;
+        varying float vAlpha;
+        varying float vHeat;
+        void main() {
+          float d = length(gl_PointCoord - 0.5) * 2.0;
+          float core = exp(-d * d * 14.0);
+          float halo = exp(-d * d * 3.0) * 0.4;
+          // White-hot as they leave the stone, cooling to the edge colour.
+          vec3 color = mix(uColor * 1.6, vec3(1.0, 0.92, 0.8) * 3.0, vHeat * vHeat * vHeat);
+          float a = (core + halo) * smoothstep(1.0, 0.75, d) * vAlpha * uAmount;
+          gl_FragColor = vec4(color * a, 1.0);
+        }`
+    });
+    this._materials.push(this.emberMaterial);
+    this.embers = new Points(geometry, this.emberMaterial);
+    this.embers.name = 'CastleEmbers';
+    this.embers.frustumCulled = false;
+    this.embers.layers.set(LAYER.VFX);
+    this.embers.visible = false;
+    this.group.add(this.embers);
   }
 
   /**
@@ -414,7 +698,7 @@ uniform float uVelvet;`)
         mesh.instanceMatrix.needsUpdate = true;
         mesh.computeBoundingSphere();
         if (material?.userData?.vfx) mesh.layers.set(LAYER.VFX);
-        this.group.add(mesh);
+        (name === 'Bookshelves' ? this.castle : this.group).add(mesh);
         return mesh;
       });
     };
@@ -454,8 +738,16 @@ uniform float uVelvet;`)
     spin('OrreryRing_3', -0.025, true);
     spin('OrreryCage', 0.03, true);
 
+    this._ringA = root.getObjectByName('RuneRing_A');
+    if (this._ringA) this._ringABase = this._ringA.position.y;
+    this._sigil = root.getObjectByName('FloorSigil');
+    if (this._sigil) this._sigilBase = this._sigil.position.y;
+
     const debris = root.getObjectByName('DebrisRocks');
-    if (debris) this._bobbers.push({ object: debris, base: debris.position.y, amp: 0.25, speed: 0.2, phase: 0 });
+    if (debris) {
+      this._debris = debris;
+      this._bobbers.push({ object: debris, base: debris.position.y, amp: 0.25, speed: 0.2, phase: 0, sinks: true });
+    }
 
     const shafts = root.getObjectByName('GodRayShafts');
     if (shafts) {
@@ -523,10 +815,40 @@ uniform float uVelvet;`)
   setVisible(on) {
     this._visible = on;
     this.group.visible = on && !this._ar;
-    // The stage floor: the cloth while the hall is up, the stone plane otherwise.
-    // AR always wants the plane — it is the shadow catcher there.
-    this.ground.mesh.visible = !this.group.visible;
+    this._applyStage();
     this._applyLightLevels();
+  }
+
+  /**
+   * The stone plane. With no hall it is the stage, at y = 0 — and AR always
+   * wants it there, as the shadow catcher. Inside the castle it is hidden: the
+   * cloth is the stage and the hall has its own floor. With the castle gone it
+   * comes back as the ground under the floating platform, running out into
+   * the fog: it appears just under the hall's floor as the burn starts (so the
+   * two never fight) and rises with it to `groundDepth`.
+   */
+  _applyStage() {
+    const open = this.group.visible && this._burnShown > 0;
+    this.ground.mesh.visible = !this.group.visible || open;
+    const rise = this._burnEase();
+    this.ground.setHeight(open ? HALL_FLOOR - 0.3 + (settings.hall.groundDepth - HALL_FLOOR + 0.3) * rise : 0);
+  }
+
+  /** The burn, eased, for the things that travel with it. */
+  _burnEase() {
+    const u = this._burnShown;
+    return u * u * (3 - 2 * u);
+  }
+
+  /** Point the burn the other way, picking it up from wherever it is now. */
+  _startBurn(away) {
+    const dir = away ? 1 : -1;
+    if (dir === this._burnDir) return;
+    this._burnDir = dir;
+    // The clock is how far into a full burn in this direction the castle
+    // already is, so a switch flipped mid-burn reverses from there.
+    const duration = Math.max(0.05, settings.hall.castleFade);
+    this._burnClock = (away ? this._burnShown : 1 - this._burnShown) * duration;
   }
 
   setAR(on) {
@@ -536,26 +858,80 @@ uniform float uVelvet;`)
 
   _applyLightLevels() {
     const k = this.group.visible ? settings.hall.lightIntensity : 0;
-    for (const { light, base } of this.lights) light.intensity = base * k;
+    const shown = this._burnShown;
+    for (const { light, base, open } of this.lights) light.intensity = base * k * (1 + (open - 1) * shown);
   }
 
-  update(dt, elapsed) {
+  /** Advance the castle's burn (or rebuild) on wall-clock time. */
+  _updateBurn(realDt) {
+    const hall = settings.hall;
+    this._startBurn(!hall.castle);
+    const duration = Math.max(0.05, hall.castleFade);
+    // Hall switched off (or AR) mid-burn: land on the end state instead.
+    if (!this.group.visible) this._burnClock = 1e4;
+    else if (this._burnClock < 1e4) this._burnClock += realDt;
+    const progress = Math.min(1, this._burnClock / duration);
+    this._burnShown = this._burnDir > 0 ? progress : 1 - progress;
+
+    this._burn.uDissolve.value = this._burnShown;
+    this._burn.uDissolveColor.value.copy(getColor(hall.castleEdge));
+    this.castle.visible = this._burnShown < 1;
+    this.godRayMaterial.uniforms.uIntensity.value = hall.godRays * (1 - this._burnShown) ** 2;
+
+    if (this.embers) {
+      const u = this.emberMaterial.uniforms;
+      const life = u.uLife.value * 1.45;
+      this.embers.visible = hall.castleEmbers > 0 && this._burnClock < duration + life;
+      u.uClock.value = this._burnClock;
+      u.uDir.value = this._burnDir;
+      u.uDuration.value = duration;
+      u.uAmount.value = hall.castleEmbers;
+    }
+
+    // The rubble under the platform reaches up to y = -1, through the raised
+    // floor and the top rune ring: it sinks out of sight as the floor rises,
+    // and stops drawing once it is under.
+    this._debrisSink = DEBRIS_SINK * this._burnEase();
+    if (this._debris) this._debris.visible = this._burnShown < 1;
+
+    if (this._ringA) {
+      const e = this._burnEase();
+      const lifted = OPEN_RING_Y - this._root.position.y;
+      this._ringA.position.y = this._ringABase + (lifted - this._ringABase) * e;
+      this._ringA.scale.setScalar(1 + (OPEN_RING_SCALE - 1) * e);
+    }
+
+    // The floor sigil rides up on the stone plane.
+    if (this._sigil) {
+      const target = hall.groundDepth + 0.05 - this._root.position.y;
+      this._sigil.position.y = this._sigilBase + (target - this._sigilBase) * this._burnEase();
+    }
+    this._applyStage();
+  }
+
+  update(dt, elapsed, realDt = dt) {
     if (!this.loaded) return;
     const hall = settings.hall;
     if (hall.enabled !== this._visible) this.setVisible(hall.enabled);
+    this._updateBurn(realDt);
     if (!this.group.visible) return;
     this._applyLightLevels();
 
     const t = elapsed * hall.motion;
     for (const s of this._spinners) {
       _q.setFromAxisAngle(_axisY, t * s.rate * Math.PI * 2);
-      if (s.local) s.object.quaternion.copy(s.base).multiply(_q);
-      else s.object.quaternion.copy(_q).multiply(s.base);
+      // The top rune ring's authored wobble (about 5 degrees) is levelled out as
+      // it rises to the stage: out there it would lift one side over the cloth.
+      let base = s.base;
+      if (s.object === this._ringA) base = _tilt.copy(s.base).slerp(_level, this._burnEase());
+      if (s.local) s.object.quaternion.copy(base).multiply(_q);
+      else s.object.quaternion.copy(_q).multiply(base);
     }
-    for (const b of this._bobbers) b.object.position.y = b.base + Math.sin(t * b.speed + b.phase) * b.amp;
+    for (const b of this._bobbers) {
+      b.object.position.y = b.base + Math.sin(t * b.speed + b.phase) * b.amp - (b.sinks ? this._debrisSink : 0);
+    }
 
     this.godRayMaterial.uniforms.uTime.value = elapsed;
-    this.godRayMaterial.uniforms.uIntensity.value = hall.godRays;
     this.runeMaterial.opacity = hall.runeGlow;
     if (this._velvet) this._velvet.value = hall.carpetBrightness;
 

@@ -1,12 +1,3 @@
-import { ShimmeringFluxAbility } from './ShimmeringFluxAbility.js';
-import { VoidSlashAbility } from './VoidSlashAbility.js';
-import { GlacialShardStormAbility } from './GlacialShardStormAbility.js';
-import { CorruptedShardAbility } from './CorruptedShardAbility.js';
-import { GlacialPrisonAbility } from './GlacialPrisonAbility.js';
-import { ToxicShieldAbility } from './ToxicShieldAbility.js';
-import { PhoenixAbility } from './PhoenixAbility.js';
-import { MonowheelAbility } from './MonowheelAbility.js';
-import { DroneAbility } from './DroneAbility.js';
 import { SharkAbility } from './SharkAbility.js';
 import { ChainsAbility } from './ChainsAbility.js';
 import { DragonAbility } from './DragonAbility.js';
@@ -19,15 +10,6 @@ import { ObjectPool } from '../utils/ObjectPool.js';
 
 /** Registry: adding an ability means adding one line here. */
 const ABILITY_TYPES = {
-  flux: ShimmeringFluxAbility,
-  voidslash: VoidSlashAbility,
-  glacial: GlacialShardStormAbility,
-  shard: CorruptedShardAbility,
-  frost: GlacialPrisonAbility,
-  toxic: ToxicShieldAbility,
-  phoenix: PhoenixAbility,
-  monowheel: MonowheelAbility,
-  drone: DroneAbility,
   shark: SharkAbility,
   chains: ChainsAbility,
   dragon: DragonAbility,

@@ -15,12 +15,11 @@ import { makeDraggable } from './draggable.js';
  * lost the hand or the pose simply was not read as a fist. It is the debugger
  * and the party trick at once, which is why it is on by default.
  *
- * The guide is the same idea one level up. A fist means four different things
- * across the bar — cast along the arrow, drop the circle, deploy the drone,
- * hold its fire — so under the preview the panel lays out the hand shapes the
- * *current* ability answers to, a tile for each with the hand drawn large and
- * a line of what it does, and rebuilds them whenever the slot or the summon's
- * state changes. The tile of the gesture the tracker is reading right now
+ * The guide is the same idea one level up. A fist means different things
+ * across the bar — cast along the arrow, drop the circle — so under the
+ * preview the panel lays out the hand shapes the *current* ability answers
+ * to, a tile for each with the hand drawn large and a line of what it does,
+ * and rebuilds them whenever the slot changes. The tile of the gesture the tracker is reading right now
  * lights up in the engaged green: the presenter sees the pose land before the
  * ability answers it.
  *
@@ -203,12 +202,8 @@ export class CameraPanel {
    * @param {object|null} result  its newest raw inference, for the skeleton
    * @param {object} [context]
    * @param {string} [context.element]  id of the ability in the slot
-   * @param {boolean} [context.deployed] a summon is out and holding the bar,
-   *   so the slot's gestures are its controls rather than a cast's
-   * @param {string|null} [context.status] what to say instead of "Aiming" —
-   *   a summon, when it is out, is driven rather than aimed
    */
-  update(state, result, { element = '', deployed = false, status = null } = {}) {
+  update(state, result, { element = '' } = {}) {
     this.element.classList.toggle('is-engaged', state.engaged);
 
     if (!state.ready) {
@@ -217,9 +212,9 @@ export class CameraPanel {
     } else if (!state.engaged) {
       this.setStatus(state.aimSeen ? 'Hold your palm open to engage' : 'Show your casting hand');
     } else if (state.pointing) {
-      this.setStatus(status ? 'Recalling…' : state.pointing > 0 ? 'Next ability →' : '← Previous ability');
+      this.setStatus(state.pointing > 0 ? 'Next ability →' : '← Previous ability');
     } else {
-      this.setStatus(status ?? 'Aiming');
+      this.setStatus('Aiming');
     }
 
     const slotLabel = ELEMENT_META[element]?.key ?? '';
@@ -238,7 +233,7 @@ export class CameraPanel {
       this.grab.style.transform = `scaleX(${fill})`;
     }
 
-    this._syncGuide(element, deployed);
+    this._syncGuide(element);
     this._highlight(state);
     this._drawSkeleton(result);
   }
@@ -248,18 +243,16 @@ export class CameraPanel {
   /* ------------------------------------------------------------------ */
 
   /**
-   * Rebuild the guide when the slot or the summon's state has changed, and
+   * Rebuild the guide when the slot has changed, and
    * only then — this runs every frame, and the DOM it would build is the
    * same one it built last frame almost every time.
    */
-  _syncGuide(element, deployed) {
-    if (!element) return;
-    const key = `${element}:${deployed ? 1 : 0}`;
-    if (key === this._guideKey) return;
-    this._guideKey = key;
+  _syncGuide(element) {
+    if (!element || element === this._guideKey) return;
+    this._guideKey = element;
 
     const { label, key: slotKey, accent } = gestureTitle(element);
-    const { kind, rows } = gestureGuide(element, { deployed });
+    const { kind, rows } = gestureGuide(element);
 
     this.guide.style.setProperty('--guide-accent', accent);
     this.guideSigil.innerHTML = ELEMENT_SIGILS[element] ?? '';

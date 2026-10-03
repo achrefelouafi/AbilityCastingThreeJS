@@ -6,8 +6,8 @@ import { ELEMENT_META, CastShape, castShapeOf } from '../config/settings.js';
  *
  * `HandInput` reads a handful of poses — an open palm, a fist, a point — and
  * what each one *does* depends on what is in the slot: a fist casts a line
- * ability along the arrow, drops a far cast's circle where it is, deploys a
- * summon, and holds fire once that summon is out. So the guide is built per
+ * ability along the arrow, and drops a far cast's circle where it is. So the
+ * guide is built per
  * ability rather than written once, and `CameraPanel` rebuilds it whenever
  * the slot changes. The hands are drawn inline like the ability sigils, so
  * they inherit `currentColor` and can light up in the tracker's green when
@@ -118,20 +118,8 @@ const CAST = WRAP(`
   <path d="M79 28L88 18M87 42L99 38M66 16L68 3" fill="none" stroke-width="5.5"/>
 `);
 
-/** Fist inside a dashed ring: keep it shut, and the guns keep going. */
-const HOLD = WRAP(`
-  ${fist(50, 51, 0.7)}
-  <circle cx="50" cy="50" r="45" fill="none" stroke-width="4.5" stroke-dasharray="9 7.6"/>
-`);
-
 const NEXT = WRAP(POINT);
 const PREV = WRAP(`<g transform="matrix(-1 0 0 1 100 0)">${POINT}</g>`);
-
-/** A smaller palm with a chevron on every side: push it off the centre. */
-const DRIVE = WRAP(`
-  ${palm(50, 50, 0.62)}
-  <path d="M42 10L50 2L58 10M90 42L98 50L90 58M42 90L50 98L58 90M10 42L2 50L10 58" fill="none" stroke-width="5.5"/>
-`);
 
 /** A palm over a down arrow: take the hand out of the frame. */
 const LOWER = WRAP(`
@@ -144,42 +132,14 @@ export const GESTURE_GLYPHS = {
   wake: WAKE,
   aim: AIM,
   cast: CAST,
-  hold: HOLD,
   next: NEXT,
   prev: PREV,
-  drive: DRIVE,
   lower: LOWER
 };
 
 /* ------------------------------------------------------------------ */
 /* The guide                                                           */
 /* ------------------------------------------------------------------ */
-
-/**
- * What each summon is called in the guide, and what the drive gesture means
- * to it — the drone strafes, the bot cannot and turns to face the hand.
- */
-const SUMMON_COPY = {
-  drone: {
-    deploy: 'deploys the drone',
-    drive: 'flies the drone; centre holds',
-    recall: 'recalls the drone',
-    kind: 'Deployed · you are flying it'
-  },
-  monowheel: {
-    deploy: 'deploys the bot',
-    drive: 'drives the bot; it faces your palm',
-    recall: 'recalls the bot',
-    kind: 'Deployed · you are driving it'
-  }
-};
-
-const GENERIC_SUMMON = {
-  deploy: 'deploys it',
-  drive: 'drives it; centre holds',
-  recall: 'recalls it',
-  kind: 'Deployed · you are driving it'
-};
 
 /**
  * A tile of the guide. The copy is short on purpose — a tile is a third of
@@ -207,32 +167,10 @@ const STEP_ROW = row(['prev', 'next'], 'Point sideways', 'previous / next abilit
  * meets them.
  *
  * @param {string} element  ability id
- * @param {object} [options]
- * @param {boolean} [options.deployed] a summon in the slot is out and holding
- *   the bar, so the fist and the palm are its controls rather than a cast's
  * @returns {{kind: string, rows: GestureRow[]}}
  */
-export function gestureGuide(element, { deployed = false } = {}) {
+export function gestureGuide(element) {
   const shape = castShapeOf(element);
-
-  if (shape === CastShape.SUMMON) {
-    const copy = SUMMON_COPY[element] ?? GENERIC_SUMMON;
-    if (deployed) {
-      return {
-        kind: copy.kind,
-        rows: [
-          row(['drive'], 'Push palm off centre', copy.drive, 'aim'),
-          row(['hold'], 'Hold a fist', 'fires; open it to stop', 'grab'),
-          row(['prev', 'next'], 'Point sideways', copy.recall, 'point', 'other'),
-          row(['lower'], 'Lower hand', 'it holds and stops firing', 'lost')
-        ]
-      };
-    }
-    return {
-      kind: 'Summon · a fist deploys it',
-      rows: [WAKE_ROW, row(['cast'], 'Close a fist', copy.deploy, 'grab'), STEP_ROW]
-    };
-  }
 
   if (shape === CastShape.ZONE) {
     return {

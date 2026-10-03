@@ -158,9 +158,7 @@ export class AimController extends EventEmitter {
    */
   confirm() {
     if (!this.armed) return false;
-    // A summon has no target to be too close to: the confirm is the toggle,
-    // wherever the pointer is — or whether there has been one at all.
-    if (!this.valid && this.shape !== CastShape.SUMMON) {
+    if (!this.valid) {
       this.emit('reject');
       return false;
     }
@@ -249,9 +247,7 @@ export class AimController extends EventEmitter {
       1
     );
 
-    // A summon is armed like anything else — so the fist can fire it — but
-    // it has no line and no footprint, and drawing either would promise one.
-    const visible = this.reveal > 0.001 && this.shape !== CastShape.SUMMON;
+    const visible = this.reveal > 0.001;
     // Only ever one of the two is on screen, and swapping the slot mid-reveal
     // hides the other outright rather than leaving it fading in place.
     this.indicator.setVisible(visible && !zoned);

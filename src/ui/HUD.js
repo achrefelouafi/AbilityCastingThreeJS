@@ -2,8 +2,6 @@ import { ELEMENTS, ELEMENT_META } from '../config/settings.js';
 import { ELEMENT_SIGILS } from './glyphs.js';
 import { CONTACT_MARKUP, ContactCard } from './contact.js';
 import { CAMERA_MARKUP, CameraPanel } from './CameraPanel.js';
-import { DRONE_DECK_MARKUP, DroneControls } from './DroneControls.js';
-import { TARGET_LAYER_MARKUP, TargetBoxes } from './TargetBoxes.js';
 import { AR_MARKUP, ARPanel } from './ARPanel.js';
 
 /**
@@ -29,11 +27,14 @@ export class HUD {
     this._armedShown = null;
 
     root.innerHTML = `
-      ${TARGET_LAYER_MARKUP}
-
       <div class="hud__panel hud__title">
         Elemental Sandbox
-        <span data-blurb>Press Q, E, R, X, B, Z, F, K, L, I, O, U or ;, aim, click to cast. V deploys the bot, Y the drone.</span>
+        <span data-blurb>Press K, L, I, O, U, ; or ' (or 1–7), aim, click to cast.</span>
+        <button class="hud__switch" type="button" data-castle role="switch" aria-checked="true" title="Castle (\`)">
+          <span class="hud__switch-track"><span class="hud__switch-thumb"></span></span>
+          <span class="hud__switch-label">Castle</span>
+          <kbd>\`</kbd>
+        </button>
       </div>
 
       <div class="hud__panel hud__stats">
@@ -44,18 +45,12 @@ export class HUD {
       </div>
 
       <div class="hud__panel hud__help">
-        <div><strong>Q</strong> — Shimmering Flux of Chaos &nbsp; <strong>E</strong> — Linear Void Slash</div>
-        <div><strong>R</strong> — Glacial Shard Storm</div>
-        <div><strong>X</strong> — Corrupted Shard Spawn &nbsp; <strong>B</strong> — Glacial Prison</div>
-        <div><strong>Z</strong> — Toxic Shield of Conquest &nbsp; <strong>F</strong> — Serpent Tide Field</div>
-        <div><strong>V</strong> — Monowheel Bot (toggle) &nbsp; <strong>Y</strong> — Sentinel Drone (toggle)</div>
-        <div><strong>K</strong> (or <strong>0</strong>) — Abyssal Maw &nbsp; <strong>L</strong> — Chains of Penance</div>
+        <div><strong>K</strong> — Abyssal Maw &nbsp; <strong>L</strong> — Chains of Penance</div>
         <div><strong>I</strong> — Dragonfire Circle &nbsp; <strong>O</strong> — Stormheart Gyroscope</div>
         <div><strong>U</strong> — Amethyst Verdict &nbsp; <strong>;</strong> — Astral Tome</div>
-        <div class="hud__help-note">Q, E and R are line casts — aimed with an arrow. X, B, Z, F, I, O and ; are far casts — aimed with a circle.</div>
-        <div class="hud__help-note">K, L and U are targeted: the circle locks onto the body under the cursor, and that one is taken.</div>
-        <div class="hud__help-note">V and Y are summons: press to deploy, press again to recall. Drive with the stick or WASD, hold Space or click to fire. Nothing else casts while one is up.</div>
-        <div class="hud__help-note">The bot is a wheel: it turns to face the stick and drives; locked on, the stick is forward and back.</div>
+        <div><strong>'</strong> — Wildroot Reliquary &nbsp; <strong>1</strong>–<strong>7</strong> — the same, by slot</div>
+        <div class="hud__help-note">Every cast is a far cast — aimed with a circle.</div>
+        <div class="hud__help-note">K, L, U and ' are targeted: the circle locks onto the body under the cursor, and that one is taken.</div>
         <div><strong>Move</strong> — aim &nbsp; <strong>Left click</strong> — cast</div>
         <div><strong>Esc / right click</strong> — cancel the cast</div>
         <div><strong>Right drag</strong> — orbit &nbsp; <strong>Scroll</strong> — zoom</div>
@@ -66,13 +61,9 @@ export class HUD {
         <div><kbd>M</kbd> camera mode &nbsp; <kbd>J</kbd> swap hands</div>
         <div class="hud__help-note">Camera: palm aims, fist casts, point left/right to swap.</div>
         <div class="hud__help-note">No webcam? The panel can use your phone's camera instead — scan the code (local network only).</div>
-        <div><kbd>N</kbd> AR mode</div>
+        <div><kbd>N</kbd> AR mode &nbsp; <kbd>\`</kbd> castle on / off</div>
         <div class="hud__help-note">AR: point a camera at a printed page, drag the corners onto it, lock — the stage stands on it and follows the camera. The arrow sits under your real hand.</div>
-        <div class="hud__help-note">Camera + summon: palm off centre drives it, fist holds fire, point to recall.</div>
         <div class="hud__help-note">Any cast that reaches a target one-shots it.</div>
-        <div class="hud__help-note">The Serpent Tide Field picks its own: the phoenix hunts them one at a time.</div>
-        <div class="hud__help-note">So does the Corrupted Shard: its light fires a beam at them, then burns them out.</div>
-        <div class="hud__help-note">The Glacial Prison and the Toxic Shield take whoever stands in the circle: frozen or turned to glass, then shattered.</div>
         <div class="hud__help-note">The Abyssal Maw kicks its target up on a spike of rock, and a shark leaps out of one portal, takes it, and drags it down into the other.</div>
         <div class="hud__help-note">The Dragonfire Circle summons a dragon that flies the circle breathing fire onto its edge; the fire then runs inward and burns everything standing in it.</div>
         <div class="hud__help-note">The Chains of Penance throw a chain out of a portal at every limb, haul the body up, and tear it apart — each piece dragged back through its own portal.</div>
@@ -99,7 +90,6 @@ export class HUD {
       ${CONTACT_MARKUP}
       ${CAMERA_MARKUP}
       ${AR_MARKUP}
-      ${DRONE_DECK_MARKUP}
 
       <div class="hud__toast" data-toast></div>
       <div class="hud__paused" data-paused>Paused</div>
@@ -108,8 +98,6 @@ export class HUD {
     this.contact = new ContactCard(root);
     this.camera = new CameraPanel(root);
     this.ar = new ARPanel(root);
-    this.drone = new DroneControls(root);
-    this.targets = new TargetBoxes(root);
     this.cards = new Map();
     for (const card of root.querySelectorAll('.ability-card')) {
       this.cards.set(card.dataset.element, card);
@@ -125,6 +113,11 @@ export class HUD {
       spikes: root.querySelector('[data-stat="spikes"]'),
       calls: root.querySelector('[data-stat="calls"]')
     };
+    this.onCastle = null;
+    this.castleSwitch = root.querySelector('[data-castle]');
+    this.castleSwitch.addEventListener('pointerdown', (event) => event.stopPropagation());
+    this.castleSwitch.addEventListener('click', () => this.onCastle?.());
+    this._castleShown = null;
     this.help = root.querySelector('.hud__help');
     this.toast = root.querySelector('[data-toast]');
     this.pausedBadge = root.querySelector('[data-paused]');
@@ -139,19 +132,6 @@ export class HUD {
     const meta = ELEMENT_META[element];
     this.contact.setAccent(meta?.accent);
     if (meta && !options.silent) this.showToast(`${meta.hint} selected`);
-  }
-
-  /**
-   * Mark a slot as *running* — a summon that is out. Distinct from armed: an
-   * armed slot is waiting for a click, a deployed one is already doing
-   * something and the press that put it out is the press that brings it back.
-   */
-  setDeployed(element, on) {
-    const card = this.cards.get(element);
-    if (card) card.classList.toggle('is-deployed', on);
-    // The deck wants the bottom-left corner, which is where the help panel's
-    // tail ends up on a short window; the help stands down while it is up.
-    this.root.classList.toggle('hud--drone', on);
   }
 
   /** Highlight the slot while a cast is armed. */
@@ -211,6 +191,14 @@ export class HUD {
 
   setPaused(paused) {
     this.pausedBadge.classList.toggle('is-visible', paused);
+  }
+
+  /** Mirror the castle setting on the switch; cheap to call every frame. */
+  setCastle(on) {
+    if (on === this._castleShown) return;
+    this._castleShown = on;
+    this.castleSwitch.classList.toggle('is-on', on);
+    this.castleSwitch.setAttribute('aria-checked', String(on));
   }
 
   toggleHelp() {

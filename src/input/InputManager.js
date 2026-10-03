@@ -7,9 +7,6 @@ import { EventEmitter } from '../utils/EventEmitter.js';
  * Events:
  *   `pointer:move` (ndc)          — every move, armed or not
  *   `pointer:confirm` (ndc)       — left click on the viewport
- *   `pointer:release` (ndc)       — the left button coming back up, anywhere.
- *                                   Nothing aimed needs it; the drone holds
- *                                   fire for as long as the button is down.
  *   `action` (name, slot)         — everything else, already named by intent.
  *                                   `ability` carries the 0-based slot index,
  *                                   which App maps through `ELEMENTS`.
@@ -30,7 +27,6 @@ export class InputManager extends EventEmitter {
 
   _bind() {
     this.dom.addEventListener('pointerdown', this._onPointerDown);
-    window.addEventListener('pointerup', this._onPointerUp);
     window.addEventListener('pointermove', this._onPointerMove);
     window.addEventListener('keydown', this._onKeyDown);
     window.addEventListener('keyup', this._onKeyUp);
@@ -56,17 +52,9 @@ export class InputManager extends EventEmitter {
       this.emit('pointer:confirm', this.pointer);
     } else if (event.button === 2) {
       // Right button also orbits (OrbitControls owns the drag); putting an armed
-      // cast away on the same press is the convention players expect. It says
-      // which button it was, because the same action from Escape means more
-      // to a drone than it does to an arrow.
-      this.emit('action', 'cancel', 'pointer');
+      // cast away on the same press is the convention players expect.
+      this.emit('action', 'cancel');
     }
-  };
-
-  _onPointerUp = (event) => {
-    if (event.button !== 0) return;
-    this._updatePointer(event);
-    this.emit('pointer:release', this.pointer);
   };
 
   _onPointerMove = (event) => {
@@ -83,69 +71,35 @@ export class InputManager extends EventEmitter {
 
     switch (event.code) {
       // Ability slots. Keep these in step with `ELEMENTS` and
-      // `ELEMENT_META[...].key`: the three line casts first, then the four
-      // far casts, then the two summons — the Monowheel Bot, and the Sentinel
-      // Drone last. The letter is the ability's; the digit is the slot's.
-      case 'KeyQ':
+      // `ELEMENT_META[...].key`. The letter is the ability's; the digit is
+      // the slot's.
+      case 'KeyK':
       case 'Digit1':
         this.emit('action', 'ability', 0);
         break;
-      case 'KeyE':
+      case 'KeyL':
       case 'Digit2':
         this.emit('action', 'ability', 1);
         break;
-      case 'KeyR':
+      case 'KeyI':
       case 'Digit3':
         this.emit('action', 'ability', 2);
         break;
-      case 'KeyX':
+      case 'KeyO':
       case 'Digit4':
         this.emit('action', 'ability', 3);
         break;
-      case 'KeyB':
+      case 'KeyU':
       case 'Digit5':
         this.emit('action', 'ability', 4);
         break;
-      case 'KeyZ':
+      case 'Semicolon':
       case 'Digit6':
         this.emit('action', 'ability', 5);
         break;
-      case 'KeyF':
+      case 'Quote':
       case 'Digit7':
         this.emit('action', 'ability', 6);
-        break;
-      case 'KeyV':
-      case 'Digit8':
-        this.emit('action', 'ability', 7);
-        break;
-      case 'KeyY':
-      case 'Digit9':
-        this.emit('action', 'ability', 8);
-        break;
-      // The tenth slot, after the summons so none of them changed digit.
-      case 'KeyK':
-      case 'Digit0':
-        this.emit('action', 'ability', 9);
-        break;
-      // The eleventh has no digit left to take.
-      case 'KeyL':
-        this.emit('action', 'ability', 10);
-        break;
-      case 'KeyI':
-        this.emit('action', 'ability', 11);
-        break;
-      case 'KeyO':
-        this.emit('action', 'ability', 12);
-        break;
-      case 'KeyU':
-        this.emit('action', 'ability', 13);
-        break;
-      // Every letter is spoken for — WASD drive the summons.
-      case 'Semicolon':
-        this.emit('action', 'ability', 14);
-        break;
-      case 'Quote':
-        this.emit('action', 'ability', 15);
         break;
       case 'Escape':
         this.emit('action', 'cancel');
@@ -174,6 +128,9 @@ export class InputManager extends EventEmitter {
       case 'KeyJ':
         this.emit('action', 'swapHands');
         break;
+      case 'Backquote':
+        this.emit('action', 'toggleCastle');
+        break;
       default:
         break;
     }
@@ -185,7 +142,6 @@ export class InputManager extends EventEmitter {
 
   dispose() {
     this.dom.removeEventListener('pointerdown', this._onPointerDown);
-    window.removeEventListener('pointerup', this._onPointerUp);
     window.removeEventListener('pointermove', this._onPointerMove);
     window.removeEventListener('keydown', this._onKeyDown);
     window.removeEventListener('keyup', this._onKeyUp);
