@@ -2108,11 +2108,11 @@ export const settings = {
    * A far cast, and a performance in five acts. A fuse of embers runs out to
    * the circle and the sky above it tears open; a dragon dives out of the tear
    * and flies one lap of the circle **breathing fire onto its edge**, so the
-   * ring draws itself behind the breath; it climbs over the middle and roars,
-   * and the fire runs **inward** from the ring until the whole disc is alight
-   * and everything standing in it has burnt; a last breath into the middle
-   * erupts it; and the dragon climbs back into the tear, which shuts behind
-   * it, leaving the floor charred and smoking.
+   * ring draws itself behind the breath; the moment the ring closes it pulls
+   * up off the lap and back into the tear, which shuts behind it; and the
+   * fire runs **inward** from the ring until the whole disc is alight and
+   * everything standing in it has burnt, erupts in the middle, and leaves
+   * the floor charred and smoking.
    *
    * Times in **The timing** are seconds, each act following the last; the
    * whole show is re-planned from them every frame, so dragging one moves
@@ -2135,11 +2135,9 @@ export const settings = {
     portalOpen: 0.6, // the sky tears open
     arriveTime: 1.75, // the dive, from the tear to the circle
     traceTime: 4.2, // one lap of the circle, breathing
-    climbTime: 1.0, // off the ring and up over the middle
-    roarTime: 0.9, // the roar that sets the field going
+    departTime: 2.0, // off the end of the lap and back up into the tear
+    spreadDelay: 0.35, // after the ring closes, before the fire turns inward
     spreadTime: 3.2, // the fire's run from the ring to the middle
-    finaleTime: 0.75, // the last breath into the middle
-    departTime: 2.0, // back up into the tear
 
     /* --- 1 · the tear in the sky --- */
     portalHeight: 12.5, // metres over the floor
@@ -2160,12 +2158,11 @@ export const settings = {
     altitude: 3.6, // metres it flies the lap at
     orbitRadius: 1.12, // its lap, × the zone radius — just outside the fire
     lag: 0.42, // radians it trails the point it is burning
-    hoverHeight: 6.4, // metres over the middle while the field burns
     idleWeight: 0.3, // how much of the authored idle runs under the flight
     flapRate: 1.2, // wing beats/second on the lap
     flapAmplitude: 0.42, // radians at the shoulder, on the lap
-    hoverRate: 0.95, // ...and hovering, where it has to work
-    hoverAmplitude: 0.78,
+    climbRate: 1.28, // ...and pulling up into the tear, where it has to work
+    climbAmplitude: 0.86,
     diveSweep: 0.75, // radians the wings fold back in the dive
     dihedral: 0.08, // radians the wings are held up
     bank: 0.7, // how hard it leans into a turn
@@ -2173,10 +2170,10 @@ export const settings = {
     tailSway: 0.14, // radians
     neckCurl: 0.2, // radians the neck carries down in flight
     aimLimit: 1.5, // radians the neck will turn to point the mouth
-    roarJaw: 0.8, // radians the jaw drops to roar
+    snarlJaw: 0.44, // radians the jaw drops, snarling out of the tear
     breathJaw: 0.5, // ...and to breathe
-    roarShake: 0.55,
-    roarFlash: 0.06,
+    inwardShake: 0.55, // when the fire turns inward
+    inwardFlash: 0.06,
     underGlow: 0.9, // the fire's light on its belly and through its wings
     dragonRim: 0.45,
     dragonRimPower: 3.0,

@@ -1816,11 +1816,9 @@ export class Editor {
     R(timing, c, 'portalOpen', 0.05, 3, 0.01, 'sky tears open (s)');
     R(timing, c, 'arriveTime', 0.3, 5, 0.01, 'the dive (s)');
     R(timing, c, 'traceTime', 0.6, 12, 0.05, 'the lap (s)');
-    R(timing, c, 'climbTime', 0.2, 4, 0.01, 'the climb (s)');
-    R(timing, c, 'roarTime', 0.15, 3, 0.01, 'the roar (s)');
-    R(timing, c, 'spreadTime', 0.3, 10, 0.05, 'fire runs inward (s)');
-    R(timing, c, 'finaleTime', 0.1, 3, 0.01, 'last breath (s)');
     R(timing, c, 'departTime', 0.4, 5, 0.01, 'the leaving (s)');
+    R(timing, c, 'spreadDelay', 0, 3, 0.01, 'fire turns inward after (s)');
+    R(timing, c, 'spreadTime', 0.3, 10, 0.05, 'fire runs inward (s)');
 
     /* ---- panel 1 ---- */
     const portal = folder.addFolder('1 · The tear in the sky');
@@ -1844,24 +1842,23 @@ export class Editor {
     R(flight, c, 'altitude', 1, 12, 0.05, 'lap height (m)');
     R(flight, c, 'orbitRadius', 0.6, 2, 0.01, 'lap (of circle radius)');
     R(flight, c, 'lag', -1, 1.5, 0.01, 'trails its fire by (rad)');
-    R(flight, c, 'hoverHeight', 2, 16, 0.05, 'hovers at (m)');
     R(flight, c, 'bank', 0, 3, 0.01, 'bank');
     R(flight, c, 'bob', 0, 1, 0.005, 'bob per beat (m)');
     const wings = dragon.addFolder('The wings, the neck, the jaw');
     R(wings, c, 'idleWeight', 0, 1, 0.01, 'authored idle shows');
     R(wings, c, 'flapRate', 0.1, 4, 0.01, 'beats/s on the lap');
     R(wings, c, 'flapAmplitude', 0, 1.4, 0.01, 'stroke on the lap (rad)');
-    R(wings, c, 'hoverRate', 0.1, 4, 0.01, 'beats/s hovering');
-    R(wings, c, 'hoverAmplitude', 0, 1.4, 0.01, 'stroke hovering (rad)');
+    R(wings, c, 'climbRate', 0.1, 4, 0.01, 'beats/s leaving');
+    R(wings, c, 'climbAmplitude', 0, 1.4, 0.01, 'stroke leaving (rad)');
     R(wings, c, 'diveSweep', 0, 1.5, 0.01, 'folded in the dive (rad)');
     R(wings, c, 'dihedral', -0.5, 0.8, 0.01, 'held up (rad)');
     R(wings, c, 'tailSway', 0, 0.6, 0.005, 'tail sway (rad)');
     R(wings, c, 'neckCurl', -0.8, 1, 0.01, 'neck carried down (rad)');
     R(wings, c, 'aimLimit', 0, 3, 0.01, 'neck turns up to (rad)');
+    R(wings, c, 'snarlJaw', 0, 1.2, 0.01, 'jaw snarling out of the tear (rad)');
     R(wings, c, 'breathJaw', 0, 1.2, 0.01, 'jaw to breathe (rad)');
-    R(wings, c, 'roarJaw', 0, 1.2, 0.01, 'jaw to roar (rad)');
-    R(wings, c, 'roarShake', 0, 1.5, 0.005, 'roar shake');
-    R(wings, c, 'roarFlash', 0, 0.5, 0.005, 'roar flash');
+    R(wings, c, 'inwardShake', 0, 1.5, 0.005, 'fire turns inward: shake');
+    R(wings, c, 'inwardFlash', 0, 0.5, 0.005, 'fire turns inward: flash');
     const hide = dragon.addFolder('The hide');
     R(hide, c, 'underGlow', 0, 4, 0.01, 'fire under it');
     R(hide, c, 'throatGlow', 0, 10, 0.05, 'throat glow');

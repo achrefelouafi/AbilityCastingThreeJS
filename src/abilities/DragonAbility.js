@@ -29,9 +29,6 @@ export const DragonAct = Object.freeze({
   PORTAL: 'portal',
   ARRIVE: 'arrive',
   TRACE: 'trace',
-  CLIMB: 'climb',
-  ROAR: 'roar',
-  SPREAD: 'spread',
   DEPART: 'depart',
   GONE: 'gone'
 });
@@ -97,7 +94,7 @@ function hermite(p0, v0, p1, v1, h, x, outP, outV) {
  *
  * A far cast, and the longest performance in the sandbox. Everything after
  * the landing runs off one clock (`show`) and a plan re-solved from the
- * settings every frame (`_plan`), in five acts:
+ * settings every frame (`_plan`), in four acts:
  *
  *   1. **the summons.** A fuse of embers runs out to the circle and the sky
  *      over it tears open — a ring of fire round a black vortex. The dragon
@@ -108,17 +105,18 @@ function hermite(p0, v0, p1, v1, h, x, outP, outV) {
  *      onto the edge a little ahead of itself, and the ring of fire is drawn
  *      by the breath: the wall is lit by angle, a point at a time, as the
  *      breath goes past it, and it leaps where it has only just caught.
- *   3. **the roar.** The ring closes with a flash; the dragon climbs over the
- *      middle, rears and roars, and on the roar the fire turns inward.
- *   4. **the burning.** A front runs from the ring to the middle with a torn,
- *      burning edge and a wall of flame standing on it; behind it the floor is
- *      char and glowing cracks and the field is ablaze, every tongue lit on
- *      the frame the front reaches it. Whatever is standing in the circle
- *      catches as the front gets to it: it staggers, chars, and burns away.
- *      A last breath into the middle, and the middle erupts.
- *   5. **the leaving.** The tear opens again and the dragon climbs back into
- *      it; it shuts behind the tail. The fire settles, the floor cools from
- *      glowing cracks to ash, the smoke thins, and the char goes last.
+ *   3. **the leaving.** The ring closes with a flash, and the dragon pulls up
+ *      off the end of its lap into the tear, opened again for it; it shuts
+ *      behind the tail.
+ *   4. **the burning.** A beat after the close the fire turns inward: a front
+ *      runs from the ring to the middle with a torn, burning edge and a wall
+ *      of flame standing on it; behind it the floor is char and glowing
+ *      cracks and the field is ablaze, every tongue lit on the frame the
+ *      front reaches it. Whatever is standing in the circle catches as the
+ *      front gets to it: it staggers, chars, and burns away. The front meets
+ *      in the middle and the middle erupts; then the fire settles, the floor
+ *      cools from glowing cracks to ash, the smoke thins, and the char goes
+ *      last.
  *
  * Nothing about the model is known here — `DragonRig` hands over a canonical
  * dragon and the pose call that flies it — and nothing about the fire is
@@ -276,7 +274,7 @@ export class DragonAbility extends Ability {
     this.throat = 0;
     this.portalOpenNow = 0;
     this.closed = false;
-    this.roared = false;
+    this.turnedIn = false;
     this.erupted = false;
     this.cameThrough = false;
 
@@ -285,11 +283,8 @@ export class DragonAbility extends Ability {
       arrive0: 0,
       arrive1: 0,
       trace1: 0,
-      climb1: 0,
-      roar1: 0,
       spread0: 0,
       spread1: 0,
-      finale0: 0,
       depart0: 0,
       depart1: 0,
       end: 0
@@ -366,15 +361,13 @@ export class DragonAbility extends Ability {
     p.arrive0 = Math.max(0.05, c.portalOpen) * 0.7;
     p.arrive1 = p.arrive0 + Math.max(0.3, c.arriveTime);
     p.trace1 = p.arrive1 + Math.max(0.6, c.traceTime);
-    p.climb1 = p.trace1 + Math.max(0.2, c.climbTime);
-    p.roar1 = p.climb1 + Math.max(0.15, c.roarTime);
-    // The fire turns on the peak of the roar, not after it.
-    p.spread0 = p.climb1 + Math.max(0.15, c.roarTime) * 0.45;
+    // The fire turns inward a beat after the ring closes, on its own.
+    p.spread0 = p.trace1 + Math.max(0, c.spreadDelay);
     p.spread1 = p.spread0 + Math.max(0.3, c.spreadTime);
-    p.finale0 = Math.max(p.roar1, p.spread1 - Math.max(0.1, c.finaleTime));
-    p.depart0 = p.spread1 + 0.45;
+    // The dragon leaves straight off the end of its lap.
+    p.depart0 = p.trace1;
     p.depart1 = p.depart0 + Math.max(0.4, c.departTime);
-    p.end = p.depart1 + 0.55;
+    p.end = Math.max(p.depart1, p.spread1) + 0.55;
     return p;
   }
 
@@ -383,9 +376,6 @@ export class DragonAbility extends Ability {
     if (t < p.arrive0) return DragonAct.PORTAL;
     if (t < p.arrive1) return DragonAct.ARRIVE;
     if (t < p.trace1) return DragonAct.TRACE;
-    if (t < p.climb1) return DragonAct.CLIMB;
-    if (t < p.roar1) return DragonAct.ROAR;
-    if (t < p.depart0) return DragonAct.SPREAD;
     if (t < p.depart1) return DragonAct.DEPART;
     return DragonAct.GONE;
   }
@@ -405,7 +395,7 @@ export class DragonAbility extends Ability {
     // of the sky *toward* the caster before it turns onto it.
     this.startAngle = Math.atan2(this.direction.z, this.direction.x);
     this.closed = false;
-    this.roared = false;
+    this.turnedIn = false;
     this.erupted = false;
     this.cameThrough = false;
     this.frontRadius = 1e3;
@@ -597,9 +587,9 @@ export class DragonAbility extends Ability {
       this._close(c);
     }
 
-    if (!this.roared && t >= p.spread0) {
-      this.roared = true;
-      this._roar(c);
+    if (!this.turnedIn && t >= p.spread0) {
+      this.turnedIn = true;
+      this._turnInward(c);
     }
 
     if (!this.erupted && t >= p.spread1) {
@@ -645,12 +635,12 @@ export class DragonAbility extends Ability {
     }
   }
 
-  /** The roar: the fire turns inward on it. */
-  _roar(c) {
+  /** The ring has closed: the fire turns inward. */
+  _turnInward(c) {
     const g = settings.global;
     const R = c.zoneRadius;
-    this.ctx.shake.add(c.roarShake * g.cameraShake, 1.6, 9);
-    if (c.roarFlash > 0) this.ctx.flash.trigger(getColor(c.colorEdge), c.roarFlash);
+    this.ctx.shake.add(c.inwardShake * g.cameraShake, 1.6, 9);
+    if (c.inwardFlash > 0) this.ctx.flash.trigger(getColor(c.colorEdge), c.inwardFlash);
     this.ctx.decals.spawn(DecalType.SHOCKWAVE, this.centre, {
       radius: R * 1.1,
       life: 0.7,
@@ -768,11 +758,6 @@ export class DragonAbility extends Ability {
     outV.set(-Math.sin(a) * R * w, 0, Math.cos(a) * R * w);
   }
 
-  /** Over the middle, where it roars and watches. */
-  _hoverPoint(out, c) {
-    return out.set(this.centre.x, c.hoverHeight, this.centre.z);
-  }
-
   /** Behind the tear: where the dragon is before it comes, and after it goes. */
   _behindPortal(out, c) {
     const length = this.rig ? this.rig.length * (c.wingspan / Math.max(0.01, this.rig.wingspan)) : 6;
@@ -791,7 +776,6 @@ export class DragonAbility extends Ability {
     const prevZ = this.vel.z;
 
     /* ---- where ---- */
-    let hovering = false;
     if (act === DragonAct.PORTAL || act === DragonAct.ARRIVE) {
       // Out of the tear along its normal, onto the lap along the lap.
       this._behindPortal(_a, c);
@@ -805,30 +789,15 @@ export class DragonAbility extends Ability {
     } else if (act === DragonAct.TRACE) {
       const u = saturate((t - p.arrive1) / Math.max(0.6, c.traceTime));
       this._lap(u, c, this.pos, this.vel);
-    } else if (act === DragonAct.CLIMB) {
-      this._lap(1, c, _a, _v);
-      this._hoverPoint(_b, c);
-      const h = Math.max(0.2, c.climbTime);
-      const x = saturate((t - p.trace1) / h);
-      _dir.set(0, 0, 0);
-      hermite(_a, _v, _b, _dir, h, x, this.pos, this.vel);
-    } else if (act === DragonAct.ROAR || act === DragonAct.SPREAD) {
-      hovering = true;
-      this._hoverPoint(this.pos, c);
-      // A slow drift about the hover point, so it is never pinned.
-      const drift = t - p.climb1;
-      this.pos.x += Math.sin(drift * 0.7) * 0.35;
-      this.pos.z += Math.sin(drift * 0.53 + 1.3) * 0.35;
-      this.vel.set(Math.cos(drift * 0.7) * 0.25, 0, Math.cos(drift * 0.53 + 1.3) * 0.19);
     } else {
-      // Back up into the tear, which has opened again for it.
-      this._hoverPoint(_a, c);
+      // Off the end of the lap, still at the lap's speed, and up into the
+      // tear, which has opened again for it.
+      this._lap(1, c, _a, _v);
       this._behindPortal(_b, c);
       const h = Math.max(0.4, c.departTime);
       const x = saturate((t - p.depart0) / h);
       _dir.copy(this.portalNormal).multiplyScalar(-_a.distanceTo(_b) / h * 1.3);
-      _v.set(0, 2.5, 0);
-      hermite(_a, _v, _b, _dir, h, Easing.inQuad(x) * 0.35 + x * 0.65, this.pos, this.vel);
+      hermite(_a, _v, _b, _dir, h, x, this.pos, this.vel);
     }
 
     // The lateral pull, for the bank. Smoothed: a finite difference of a
@@ -842,18 +811,15 @@ export class DragonAbility extends Ability {
 
     /* ---- which way it faces ---- */
     const flat = Math.hypot(this.vel.x, this.vel.z);
-    // Hovering, it faces the caster: the roar is played to the camera.
-    const yawTarget = !hovering && flat > 1.5 ? Math.atan2(this.vel.x, this.vel.z) : Math.atan2(-this.direction.x, -this.direction.z);
-    let pitchTarget = Math.max(-0.7, Math.min(0.9, Math.atan2(-this.vel.y, Math.max(flat, 2.5))));
-    if (hovering) pitchTarget = -0.22;
-    if (act === DragonAct.ROAR) pitchTarget = -0.5 * Math.sin(Math.PI * saturate((t - p.climb1) / Math.max(0.15, c.roarTime)));
+    // Slow enough to be standing still, it faces the caster.
+    const yawTarget = flat > 1.5 ? Math.atan2(this.vel.x, this.vel.z) : Math.atan2(-this.direction.x, -this.direction.z);
+    const pitchTarget = Math.max(-0.7, Math.min(0.9, Math.atan2(-this.vel.y, Math.max(flat, 2.5))));
 
-    const yawRate = act === DragonAct.CLIMB || hovering ? 0.08 : 0.002;
-    if (dt > 0) this.yaw += turnTo(this.yaw, yawTarget) * (1 - Math.pow(yawRate, dt));
+    if (dt > 0) this.yaw += turnTo(this.yaw, yawTarget) * (1 - Math.pow(0.002, dt));
     else this.yaw = yawTarget;
     const left = _b.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
     const lateral = this.accel.dot(left);
-    const rollTarget = hovering ? 0 : -Math.atan2(lateral, 9.8) * c.bank;
+    const rollTarget = -Math.atan2(lateral, 9.8) * c.bank;
     this.pitch = dt > 0 ? damp(this.pitch, pitchTarget, 0.05, dt) : pitchTarget;
     this.roll = dt > 0 ? damp(this.roll, Math.max(-0.7, Math.min(0.7, rollTarget)), 0.05, dt) : rollTarget;
 
@@ -862,7 +828,7 @@ export class DragonAbility extends Ability {
     let amp = c.flapAmplitude;
     let sweep = 0;
     let dihedral = c.dihedral;
-    let neck = c.neckCurl;
+    const neck = c.neckCurl;
     let jaw = 0;
     if (act === DragonAct.PORTAL || act === DragonAct.ARRIVE) {
       // Folded into the dive, opening and beating as it pulls out of it.
@@ -872,26 +838,14 @@ export class DragonAbility extends Ability {
       amp = c.flapAmplitude * (0.25 + 0.95 * open);
       rate = c.flapRate * (0.7 + 0.5 * open);
       dihedral = c.dihedral + 0.25 * (1 - open);
-      jaw = c.roarJaw * 0.55 * Math.sin(Math.PI * smoothstep(0.05, 0.5, x));
-    } else if (act === DragonAct.CLIMB) {
-      rate = c.flapRate * 1.15;
-      amp = c.hoverAmplitude * 1.05;
-    } else if (act === DragonAct.ROAR) {
-      const x = saturate((t - p.climb1) / Math.max(0.15, c.roarTime));
-      const peak = Math.sin(Math.PI * x);
-      rate = c.hoverRate * 0.8;
-      amp = c.hoverAmplitude * (1 - peak * 0.45);
-      dihedral = c.dihedral + 0.4 * peak;
-      neck = c.neckCurl - 0.75 * peak;
-      jaw = c.roarJaw * Math.pow(peak, 0.6);
-    } else if (act === DragonAct.SPREAD) {
-      rate = c.hoverRate;
-      amp = c.hoverAmplitude;
-      neck = c.neckCurl + 0.15;
+      jaw = c.snarlJaw * Math.sin(Math.PI * smoothstep(0.05, 0.5, x));
     } else if (act === DragonAct.DEPART) {
-      rate = c.hoverRate * 1.35;
-      amp = c.hoverAmplitude * 1.1;
-      sweep = c.diveSweep * 0.4 * smoothstep(0.5, 1, saturate((t - p.depart0) / Math.max(0.4, c.departTime)));
+      // Beating harder as it pulls up off the lap, folding as it goes in.
+      const x = saturate((t - p.depart0) / Math.max(0.4, c.departTime));
+      const climb = smoothstep(0, 0.35, x);
+      rate = c.flapRate + (c.climbRate - c.flapRate) * climb;
+      amp = c.flapAmplitude + (c.climbAmplitude - c.flapAmplitude) * climb;
+      sweep = c.diveSweep * 0.4 * smoothstep(0.5, 1, x);
     }
     if (this.breathHeat > 0.01) jaw = Math.max(jaw, c.breathJaw * this.breathHeat);
     this.beat += dt * TAU * rate * g.animationSpeed;
@@ -941,46 +895,26 @@ export class DragonAbility extends Ability {
   /**
    * Where the breath is going, and how much of the jet there is.
    *
-   * Two windows: the lap, onto the ring a little ahead of the dragon, and
-   * the finale, into the middle. In each, the gas runs out from the mouth at
+   * One window: the lap, onto the ring a little ahead of the dragon. The gas
+   * runs out from the mouth at
    * `breathSpeed` and, when the window shuts, the tail of the jet leaves the
    * mouth and runs out after it — so a breath starts and stops like a jet
    * and not like a light being switched.
    */
   _breathe(dt, c, p) {
     const t = this.show;
-    let on0 = p.arrive1;
-    let on1 = p.trace1;
-    let target = 'ring';
-    if (t >= p.climb1) {
-      on0 = p.finale0;
-      on1 = p.spread1 + 0.1;
-      target = 'centre';
-    }
+    const on0 = p.arrive1;
+    const on1 = p.trace1;
 
-    // What it is breathing at.
-    if (target === 'ring') {
-      const u = saturate((t - p.arrive1) / Math.max(0.6, c.traceTime));
-      const a = this._fireAngle(u);
-      this.breathAt.set(this.centre.x + Math.cos(a) * c.zoneRadius, 0, this.centre.z + Math.sin(a) * c.zoneRadius);
-    } else {
-      this.breathAt.copy(this.centre);
-    }
+    // What it is breathing at: the ring, a little ahead of itself.
+    const lap = saturate((t - p.arrive1) / Math.max(0.6, c.traceTime));
+    const a = this._fireAngle(lap);
+    this.breathAt.set(this.centre.x + Math.cos(a) * c.zoneRadius, 0, this.centre.z + Math.sin(a) * c.zoneRadius);
 
     // The neck comes onto it a little before the gas leaves, and lets go after.
-    const wantAim = t > on0 - 0.35 && t < on1 + 0.2 ? 1 : 0;
-    // During the spread it watches the fire it set.
-    const watch = this.act === DragonAct.SPREAD && !wantAim ? 0.45 : 0;
-    const aimTarget = Math.max(wantAim, watch);
+    const aimTarget = t > on0 - 0.35 && t < on1 + 0.2 ? 1 : 0;
     this.aimWeight = dt > 0 ? damp(this.aimWeight, aimTarget, 0.004, dt) : aimTarget;
-    if (watch > 0 && !wantAim) {
-      // The nearest point of the front, under it.
-      this.aim.copy(this.centre);
-      this.aim.x += Math.sin(this.yaw) * Math.max(0, this.frontRadius) * 0.6;
-      this.aim.z += Math.cos(this.yaw) * Math.max(0, this.frontRadius) * 0.6;
-    } else {
-      this.aim.copy(this.breathAt);
-    }
+    this.aim.copy(this.breathAt);
 
     const len = Math.max(0.5, this.mouth.distanceTo(this.breathAt));
     const speed = Math.max(2, c.breathSpeed);
@@ -1167,9 +1101,9 @@ export class DragonAbility extends Ability {
     return Math.min(TAU + c.ringGrow * 4, Math.max(0, (t - p.arrive1 - 0.12) * rate));
   }
 
-  /** 1 while the field is at full blaze, settling as the dragon leaves, out by the end. */
+  /** 1 while the field is at full blaze, settling once the front is in, out by the end. */
   _fireLife(p) {
-    const settle = 1 - 0.3 * smoothstep(p.depart0, p.end, this.show);
+    const settle = 1 - 0.3 * smoothstep(p.spread1, p.end, this.show);
     return settle * (1 - smoothstep(0, 0.5, this.burnout));
   }
 

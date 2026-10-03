@@ -80,6 +80,20 @@
       ],
       "port": 5389,
       "url": "http://127.0.0.1:5389"
+    },
+    {
+      "name": "dragon-verify",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5395",
+        "--strictPort"
+      ],
+      "port": 5395,
+      "url": "http://127.0.0.1:5395"
     }
   ]
 }
