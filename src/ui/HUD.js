@@ -79,6 +79,7 @@ export class HUD {
         <div class="hud__help-note">The Stormheart Gyroscope condenses over its circle, charges its rune, and strikes everyone standing in it with lightning that jumps from body to body — then overloads.</div>
         <div class="hud__help-note">The Amethyst Verdict writes a circle round its target with a socket at every point of a star; an amethyst point rises out of each, turns on the body, and they come in one after another and shatter on it.</div>
         <div class="hud__help-note">The Astral Tome is conjured at your shoulder and flies to the circle, swells, and opens an orrery over it; its planets tear free and fall as lights on everyone standing inside.</div>
+        <div class="hud__help-note">The Wildroot Reliquary raises an arch of roots over its target and a ring of runestones in it; tendrils take the body by the wrists and ankles and hang it in the ring, the runes light, and the arch drags it down into the earth — leaving a sapling.</div>
         <div class="hud__help-note">Paused still applies every editor change.</div>
       </div>
 

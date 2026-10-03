@@ -313,7 +313,27 @@ const TOME = WRAP(`
   <path d="M22 12V18M19 15H25" stroke-width="2.6"/>
 `);
 
+/**
+ * Wildroot Reliquary — two roots braided into an arch over a broken ring of
+ * stone, a rune cube hanging in the middle, and a curl off one side.
+ *
+ * The arch is two strokes that cross at the top, which is the whole of the
+ * braid at 34px; the ring is three heavy arcs with the bottom left open, the
+ * way the slabs stand in the cast.
+ */
+const RELIQUARY = WRAP(`
+  <path d="M18 92C14 62 18 30 44 16C58 9 72 14 76 30"/>
+  <path d="M82 92C86 62 82 30 56 16C42 9 28 14 24 30"/>
+  <path d="M32 66A20 20 0 0 1 34 40" stroke-width="6"/>
+  <path d="M40 34A20 20 0 0 1 60 34" stroke-width="6"/>
+  <path d="M66 40A20 20 0 0 1 68 66" stroke-width="6"/>
+  <rect x="44" y="46" width="12" height="12" rx="1.5" transform="rotate(12 50 52)"/>
+  <path d="M76 30C84 26 90 32 86 38C83 42 78 38 81 35" stroke-width="3"/>
+  <path d="M10 92H90" stroke-width="3"/>
+`);
+
 export const ELEMENT_SIGILS = {
+  reliquary: RELIQUARY,
   tome: TOME,
   amethyst: AMETHYST,
   gyro: GYRO,

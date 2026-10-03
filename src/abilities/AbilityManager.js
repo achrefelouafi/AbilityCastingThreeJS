@@ -13,6 +13,7 @@ import { DragonAbility } from './DragonAbility.js';
 import { GyroscopeAbility } from './GyroscopeAbility.js';
 import { AmethystAbility } from './AmethystAbility.js';
 import { TomeAbility } from './TomeAbility.js';
+import { ReliquaryAbility } from './ReliquaryAbility.js';
 import { ELEMENTS } from '../config/settings.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
@@ -32,7 +33,8 @@ const ABILITY_TYPES = {
   dragon: DragonAbility,
   gyro: GyroscopeAbility,
   amethyst: AmethystAbility,
-  tome: TomeAbility
+  tome: TomeAbility,
+  reliquary: ReliquaryAbility
 };
 
 const MAX_CONCURRENT = 4;

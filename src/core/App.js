@@ -21,6 +21,7 @@ import { buildDragonRig } from '../assets/DragonRig.js';
 import { buildGyroscopeRig } from '../assets/GyroscopeRig.js';
 import { buildAmethystRig } from '../assets/AmethystRig.js';
 import { buildTomeRig } from '../assets/TomeRig.js';
+import { buildReliquaryRig } from '../assets/ReliquaryRig.js';
 import { CharacterController } from '../animation/CharacterController.js';
 import { DummyField } from '../combat/DummyField.js';
 
@@ -56,6 +57,7 @@ const DRAGON_URL = './models/dragon.glb';
 const GYRO_URL = './models/magical_gyroscope.glb';
 const AMETHYST_URL = './models/amethyst_stones.glb';
 const TOME_URL = './models/arcane_tome.glb';
+const RELIQUARY_URL = './models/wildroot_reliquary.glb';
 
 const _summonHeading = new Vector3();
 
@@ -786,6 +788,11 @@ export class App {
     // Built in Blender; without it the orrery still opens, with no book under it.
     const tome = await assets.loadGLTF(TOME_URL).catch(() => null);
     this.models.tome = buildTomeRig(tome);
+
+    this.loading.setProgress(0.84995, 'Carving the reliquary…');
+    // Cut in Blender; without it the halo stands in plain ring pieces.
+    const reliquary = await assets.loadGLTF(RELIQUARY_URL).catch(() => null);
+    this.models.reliquary = buildReliquaryRig(reliquary);
 
     await this._precompile(0.85, 0.99);
 

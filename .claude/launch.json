@@ -66,6 +66,20 @@
       ],
       "port": 5377,
       "url": "http://127.0.0.1:5377"
+    },
+    {
+      "name": "reliquary-verify",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5389",
+        "--strictPort"
+      ],
+      "port": 5389,
+      "url": "http://127.0.0.1:5389"
     }
   ]
 }

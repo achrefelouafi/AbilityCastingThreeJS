@@ -47,6 +47,7 @@ export class Editor {
     this._buildGyro();
     this._buildAmethyst();
     this._buildTome();
+    this._buildReliquary();
     this._buildMonowheel();
     this._buildDrone();
     this._buildEnvironment();
@@ -2316,6 +2317,172 @@ export class Editor {
     light.addColor(c, 'lightColor').name('colour');
 
     this.tomeFolder = folder;
+  }
+
+  /**
+   * The Wildroot Reliquary, in the order of the rite.
+   */
+  _buildReliquary() {
+    const folder = this.gui.addFolder('❦  Wildroot Reliquary');
+    const c = settings.reliquary;
+    const R = Editor.range;
+
+    const cast = folder.addFolder('The cast');
+    R(cast, c, 'range', 4, 60, 0.1, 'max range');
+    R(cast, c, 'minRange', 0, 12, 0.1, 'min range');
+    R(cast, c, 'zoneRadius', 1.5, 8, 0.05, 'sigil radius (m)');
+    R(cast, c, 'snapRadius', 0.5, 6, 0.05, 'snap radius (m)');
+    R(cast, c, 'speed', 4, 120, 0.5, 'seed speed (m/s)');
+    R(cast, c, 'cooldown', 0, 20, 0.05, 'cooldown');
+    R(cast, c, 'fadeTime', 0.1, 6, 0.05, 'fade (s)');
+    Editor.castAnimation(cast, c);
+
+    const timing = folder.addFolder('The timing');
+    R(timing, c, 'drawTime', 0.05, 2, 0.01, 'sigil draws (s)');
+    R(timing, c, 'archAt', 0, 2, 0.01, 'arch breaks floor at (s)');
+    R(timing, c, 'archGrow', 0.1, 4, 0.01, 'arch climbs (s)');
+    R(timing, c, 'haloAt', 0, 4, 0.01, 'stones rise at (s)');
+    R(timing, c, 'haloRise', 0.1, 3, 0.01, 'a slab rises (s)');
+    R(timing, c, 'haloStagger', 0, 0.5, 0.005, 'between slabs (s)');
+    R(timing, c, 'cubeStagger', 0, 0.2, 0.001, 'between cubes (s)');
+    R(timing, c, 'bindAt', 0, 5, 0.01, 'tendrils come at (s)');
+    R(timing, c, 'whipTime', 0.05, 2, 0.01, 'tendrils reach (s)');
+    R(timing, c, 'wrapTime', 0.05, 2, 0.01, 'tendrils wind (s)');
+    R(timing, c, 'hoistTime', 0.1, 3, 0.01, 'hoist (s)');
+    R(timing, c, 'igniteAt', 0, 8, 0.01, 'runes light at (s)');
+    R(timing, c, 'igniteTime', 0.1, 5, 0.01, 'runes light over (s)');
+    R(timing, c, 'finaleDelay', 0, 2, 0.01, 'then waits (s)');
+    R(timing, c, 'diveTime', 0.05, 2, 0.01, 'cubes dive (s)');
+    R(timing, c, 'dragTime', 0.1, 3, 0.01, 'dragged under (s)');
+    R(timing, c, 'witherDelay', 0, 3, 0.01, 'then waits (s)');
+    R(timing, c, 'witherTime', 0.2, 5, 0.01, 'roots wither (s)');
+    R(timing, c, 'saplingGrow', 0.1, 4, 0.01, 'sapling grows (s)');
+
+    const sigil = folder.addFolder('1 · The sigil');
+    R(sigil, c, 'sigilIntensity', 0, 4, 0.01, 'intensity');
+    R(sigil, c, 'sigilSpin', -3, 3, 0.01, 'spin');
+
+    const arch = folder.addFolder('2 · The arch');
+    R(arch, c, 'archSpan', 0.8, 6, 0.01, 'to each foot (m)');
+    R(arch, c, 'archHeight', 1.5, 9, 0.01, 'apex (m)');
+    R(arch, c, 'archBehind', -2, 2, 0.01, 'behind the body (m)');
+    R(arch, c, 'archRadius', 0.05, 0.8, 0.005, 'foot radius (m)');
+    R(arch, c, 'archTipRadius', 0.01, 0.4, 0.005, 'tip radius (m)');
+    R(arch, c, 'archFlare', 0, 3, 0.01, 'foot flare');
+    R(arch, c, 'archTwist', -2, 2, 0.01, 'braid (turns/m)');
+    R(arch, c, 'archTwine', 0, 1.5, 0.01, 'twine (m)');
+    R(arch, c, 'archSway', 0, 0.4, 0.005, 'sway (m)');
+    R(arch, c, 'vines', 0, 2, 1, 'vines per root');
+    R(arch, c, 'vineRadius', 0.01, 0.2, 0.001, 'vine radius (m)');
+    R(arch, c, 'vineTurns', 0, 2, 0.01, 'vine turns/m');
+    R(arch, c, 'curls', 0, 8, 1, 'curling tendrils');
+    R(arch, c, 'curlLength', 0.2, 4, 0.01, 'curl length (m)');
+    R(arch, c, 'curlRadius', 0.01, 0.25, 0.001, 'curl radius (m)');
+    R(arch, c, 'groundRoots', 0, 4, 1, 'floor roots');
+    R(arch, c, 'groundLength', 0.2, 5, 0.01, 'floor root length (m)');
+    R(arch, c, 'eruptShake', 0, 1.5, 0.005, 'eruption shake');
+
+    const bark = folder.addFolder('3 · The bark and the leaves');
+    R(bark, c, 'barkBump', 0, 4, 0.01, 'bark relief');
+    R(bark, c, 'moss', 0, 1.5, 0.01, 'moss');
+    R(bark, c, 'lichen', 0, 1.5, 0.01, 'lichen');
+    R(bark, c, 'veinGlow', 0, 5, 0.01, 'crevice light');
+    R(bark, c, 'sapGlow', 0, 4, 0.01, 'sap glow');
+    R(bark, c, 'sapSpeed', -4, 4, 0.01, 'sap speed');
+    R(bark, c, 'tipGlow', 0, 20, 0.05, 'growing tip');
+    R(bark, c, 'barkRim', 0, 3, 0.01, 'rim');
+    R(bark, c, 'taper', 0.05, 3, 0.01, 'tip taper (m)');
+    R(bark, c, 'leafSize', 0.05, 1.5, 0.005, 'leaf length (m)');
+    R(bark, c, 'leafTranslucency', 0, 4, 0.01, 'leaf translucency');
+
+    const halo = folder.addFolder('4 · The reliquary');
+    R(halo, c, 'haloHeight', 0.8, 6, 0.01, 'ring height (m)');
+    R(halo, c, 'haloRadius', 0.5, 4, 0.01, 'ring radius (m)');
+    R(halo, c, 'haloSpan', 90, 350, 1, 'slabs span (°)');
+    R(halo, c, 'haloSway', 0, 0.6, 0.005, 'rock (rad)');
+    R(halo, c, 'slabs', 2, 5, 1, 'slabs');
+    R(halo, c, 'slabThickness', 0.3, 3, 0.01, 'slab thickness');
+    R(halo, c, 'slabDropStagger', 0, 0.5, 0.005, 'between falls (s)');
+    R(halo, c, 'sinkSpeed', 0, 2, 0.01, 'sinks after');
+    R(halo, c, 'cubes', 0, 16, 1, 'cubes');
+    R(halo, c, 'cubeRadius', 0.3, 3, 0.01, 'cube ring radius (m)');
+    R(halo, c, 'cubeSize', 0.05, 0.6, 0.005, 'cube size (m)');
+    R(halo, c, 'cubeSpan', 30, 350, 1, 'cubes span (°)');
+    R(halo, c, 'cubeTumble', -4, 4, 0.01, 'tumble (rad/s)');
+    R(halo, c, 'converge', 0, 0.8, 0.01, 'close in');
+    R(halo, c, 'auraIntensity', 0, 4, 0.01, 'light in the ring');
+
+    const stone = folder.addFolder('5 · The stone');
+    R(stone, c, 'patina', 0, 1.5, 0.01, 'patina');
+    R(stone, c, 'glyphGlow', 0, 5, 0.01, 'rune glow');
+    R(stone, c, 'carveDepth', 0, 2, 0.01, 'carving');
+    R(stone, c, 'stoneRim', 0, 3, 0.01, 'rim');
+    R(stone, c, 'stoneEnv', 0, 4, 0.01, 'reflections');
+
+    const bind = folder.addFolder('6 · The binding');
+    R(bind, c, 'sproutRadius', 0.3, 4, 0.01, 'sprouts out (m)');
+    R(bind, c, 'tendrilRadius', 0.01, 0.2, 0.001, 'tendril radius (m)');
+    R(bind, c, 'wrapTurns', 0.5, 6, 0.05, 'wraps');
+    R(bind, c, 'wrapRadius', 0.02, 0.25, 0.001, 'wrap radius (m)');
+    R(bind, c, 'spreadArms', 0, 2, 0.01, 'arms out (m)');
+    R(bind, c, 'armsUp', -1, 2, 0.01, 'arms up (m)');
+    R(bind, c, 'spreadLegs', 0, 1.5, 0.01, 'legs out (m)');
+    R(bind, c, 'legsDown', 0, 2, 0.01, 'legs down (m)');
+    R(bind, c, 'bindShake', 0, 1, 0.005, 'bite shake');
+    R(bind, c, 'overgrow', 0, 1, 0.01, 'bark over the body');
+    R(bind, c.hit, 'impulse', 0, 10, 0.05, 'bite impulse');
+    R(bind, c.hit, 'lift', 0, 10, 0.05, 'bite lift');
+    R(bind, c.hit, 'spin', 0, 4, 0.05, 'bite spin');
+    bind.addColor(c.look, 'color').name('body: bark');
+    bind.addColor(c.look, 'rimColor').name('body: rim');
+    R(bind, c.look, 'rimEmissive', 0, 8, 0.05, 'body: rim glow');
+    bind.addColor(c.look, 'edgeColor').name('body: edge');
+    R(bind, c.look, 'edgeEmissive', 0, 16, 0.1, 'body: edge glow');
+
+    const finale = folder.addFolder('7 · The reclamation');
+    R(finale, c, 'dragDepth', 0.5, 6, 0.01, 'dragged down (m)');
+    R(finale, c, 'finaleLeaves', 0, 400, 1, 'leaves');
+    R(finale, c, 'finaleSpores', 0, 400, 1, 'spores');
+    R(finale, c, 'finaleDirt', 0, 60, 1, 'dirt');
+    R(finale, c, 'finaleShake', 0, 2, 0.01, 'shake');
+    R(finale, c, 'finaleFlash', 0, 0.6, 0.005, 'flash');
+    R(finale, c, 'finaleLight', 0, 300, 1, 'light');
+
+    const sapling = folder.addFolder('8 · The sapling');
+    R(sapling, c, 'saplingHeight', 0, 2.5, 0.01, 'height (m)');
+    R(sapling, c, 'saplingRadius', 0.005, 0.15, 0.001, 'radius (m)');
+    R(sapling, c, 'saplingGlow', 0, 4, 0.01, 'glow');
+
+    const air = folder.addFolder('9 · The air');
+    R(air, c, 'sporeRate', 0, 400, 1, 'spores/s');
+    R(air, c, 'leafFall', 0, 120, 1, 'leaves/s');
+
+    const palette = folder.addFolder('The palette');
+    palette.addColor(c, 'colorBarkDark').name('bark, deep');
+    palette.addColor(c, 'colorBark').name('bark');
+    palette.addColor(c, 'colorMoss').name('moss');
+    palette.addColor(c, 'colorLichen').name('lichen');
+    palette.addColor(c, 'colorVine').name('vines');
+    palette.addColor(c, 'colorVein').name('sap, veins');
+    palette.addColor(c, 'colorTip').name('growing tip');
+    palette.addColor(c, 'colorDry').name('withered');
+    palette.addColor(c, 'colorLeaf').name('leaf');
+    palette.addColor(c, 'colorLeafDark').name('leaf, deep');
+    palette.addColor(c, 'colorStoneDark').name('stone, deep');
+    palette.addColor(c, 'colorStone').name('stone');
+    palette.addColor(c, 'colorPatina').name('patina');
+    palette.addColor(c, 'colorGlyph').name('runes, cold');
+    palette.addColor(c, 'colorGlyphHot').name('runes, lit');
+    palette.addColor(c, 'colorSigil').name('sigil');
+    palette.addColor(c, 'colorAura').name('ring light');
+    palette.addColor(c, 'colorDirt').name('dirt');
+
+    const light = folder.addFolder('The light');
+    R(light, c, 'lightIntensity', 0, 60, 0.5, 'intensity');
+    R(light, c, 'lightRadius', 1, 30, 0.1, 'radius');
+    light.addColor(c, 'lightColor').name('colour');
+
+    this.reliquaryFolder = folder;
   }
 
   _buildMonowheel() {
