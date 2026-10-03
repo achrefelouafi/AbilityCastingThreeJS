@@ -311,7 +311,7 @@ export class ReliquaryAbility extends Ability {
     for (let k = 0; k < N_GROUND; k++) for (let i = 0; i < 4; i++) leaf(GROUND + k, rnd(0.15, 0.9), rnd(0.4, 0.75), rnd(0.6, 1), 0.05);
     for (let k = 0; k < 4; k++) for (let i = 0; i < 3; i++) leaf(BIND + k, rnd(0.08, 0.42), rnd(0.35, 0.6), rnd(0.4, 1), rnd(0.2, 0.6));
     for (let i = 0; i < 9; i++) {
-      leaves.push({ curve: SAPLING, u: 0.35 + (0.62 * i) / 8, angle: (i * 0.382) % 1, size: 0.32 + 0.12 * Math.random(), tilt: 0.75, droop: 0.15, seed: Math.random() * 0.4, hue: 0.6 + Math.random() * 0.4 });
+      leaves.push({ curve: SAPLING, u: 0.35 + (0.62 * i) / 8, angle: (i * 0.382) % 1, size: 0.95 + 0.35 * Math.random(), tilt: 0.75, droop: 0.25, seed: Math.random() * 0.4, hue: 0.6 + Math.random() * 0.4 });
     }
     this.leafGeometry = createLeafGeometry(leaves);
     this.leafMaterial = createLeafMaterial(this.bank);
@@ -1573,9 +1573,11 @@ export class ReliquaryAbility extends Ability {
       if (_n.lengthSq() < 1e-6) _n.copy(this.side);
       _n.normalize();
       const wave = Math.sin(age * 16 + i * 1.7) * whip;
-      _p.lerpVectors(binding.sprout, _c, 0.42).addScaledVector(UP, 0.45 + whip).addScaledVector(_n, wave);
+      // Bowed out away from the body, so the four read as a cage, not as poles.
+      const bow = binding.side * (binding.spec.arm ? 0.45 : 0.3);
+      _p.lerpVectors(binding.sprout, _c, 0.42).addScaledVector(UP, 0.45 + whip).addScaledVector(_n, wave).addScaledVector(this.side, bow);
       bank.add(_p);
-      _p.lerpVectors(binding.sprout, _c, 0.78).addScaledVector(UP, 0.12).addScaledVector(_n, -wave * 0.6);
+      _p.lerpVectors(binding.sprout, _c, 0.78).addScaledVector(UP, 0.12).addScaledVector(_n, -wave * 0.6).addScaledVector(this.side, bow * 0.5);
       bank.add(_p);
       let lead = binding.sprout.distanceTo(_c) * 1.15 + 0.75;
       for (let k = 0; k <= K; k++) {
@@ -1623,7 +1625,7 @@ export class ReliquaryAbility extends Ability {
     bank.commit(SAPLING, c.saplingRadius, c.saplingRadius * 0.35, 0.6, 0.1, 3.3, this.side.x, this.side.y, this.side.z);
     const g = Easing.outCubic(saturate((age - T.saplingAt) / Math.max(0.05, c.saplingGrow)));
     const shrink = smoothstep(0.55, 1, fading);
-    this._grow(SAPLING, g * (1 - shrink), shrink, (0.6 + 0.4 * Math.sin(age * 3)) * c.saplingGlow);
+    this._grow(SAPLING, g * (1 - shrink), shrink, (0.25 + 0.1 * Math.sin(age * 3)) * c.saplingGlow);
   }
 
   /** Write one curve's growth, wither and sap; a curve with nothing out is hidden. */

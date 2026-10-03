@@ -2628,7 +2628,7 @@ export const settings = {
     eruptShake: 0.22,
 
     /* --- 3 · the bark and the leaves --- */
-    barkBump: 0.8,
+    barkBump: 0.1,
     moss: 0.22,
     lichen: 0.35,
     veinGlow: 1.0, // light in the crevices
@@ -2636,7 +2636,7 @@ export const settings = {
     sapSpeed: 1.0,
     tipGlow: 5.0, // the growing tip
     barkRim: 0.35,
-    barkEnv: 0.35, // how much of the hall the bark reflects
+    barkEnv: 0.15, // how much of the hall the bark reflects
     taper: 0.55, // metres the tip tapers over
     leafSize: 0.3, // metres
     leafTranslucency: 1.0,
@@ -2700,8 +2700,8 @@ export const settings = {
     finaleLight: 80.0,
 
     /* --- 8 · the sapling --- */
-    saplingHeight: 0.8, // metres (0 for none)
-    saplingRadius: 0.035,
+    saplingHeight: 1.1, // metres (0 for none)
+    saplingRadius: 0.05,
     saplingGlow: 1.0,
 
     /* --- 9 · the air --- */
