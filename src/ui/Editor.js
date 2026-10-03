@@ -2845,9 +2845,6 @@ export class Editor {
 
     folder.add(p, 'enabled').name('enabled');
     R(folder, p, 'exposure', 0.1, 3, 0.01, 'exposure');
-    R(folder, p, 'bloomStrength', 0, 3, 0.01, 'bloom intensity');
-    R(folder, p, 'bloomRadius', 0, 1.5, 0.01, 'bloom radius');
-    R(folder, p, 'bloomThreshold', 0, 2, 0.01, 'bloom threshold');
     R(folder, p, 'contrast', 0.5, 2, 0.01, 'contrast');
     R(folder, p, 'saturation', 0, 2.5, 0.01, 'saturation');
     R(folder, p, 'temperature', -0.5, 0.5, 0.01, 'temperature');

@@ -80,17 +80,19 @@ export class DuelHall {
     this._materials = [];
     this._textures = [];
 
-    // Warm hall light: one over the platform (the orrery's sun) and a ring of
-    // candle-height fills. No shadows — the sun owns the shadow map.
+    // Night: the hall is lit by its candles and the orrery, with the scene's cool
+    // key standing in for moonlight. One warm light over the platform (the
+    // orrery's sun) and a ring of candle-height fills. No shadows — the key owns
+    // the shadow map.
     this.lights = [];
     const orrery = new PointLight(0xffb066, 0, 0, 2);
     orrery.position.set(0, 23, 0);
-    this.lights.push({ light: orrery, base: 1400 });
+    this.lights.push({ light: orrery, base: 600 });
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-      const fill = new PointLight(0xffa25a, 0, 0, 2);
+      const fill = new PointLight(0xff8a3d, 0, 0, 2);
       fill.position.set(Math.cos(a) * 24, 11, Math.sin(a) * 24);
-      this.lights.push({ light: fill, base: 260 });
+      this.lights.push({ light: fill, base: 240 });
     }
     // Violet levitation glow from under the platform.
     const under = new PointLight(0x8a55ff, 0, 0, 2);
@@ -125,7 +127,8 @@ export class DuelHall {
       if (!node.isMesh) return;
       const key = node.material?.name ?? '';
       // The stone under the cloth shares the trim look but has to open with it.
-      const material = node.name === 'PlatformDisc' ? this._disc : mats[key];
+      const material =
+        node.name === 'PlatformDisc' ? this._disc : node.name === 'Oculus' ? this._nightSky : mats[key];
       if (material) node.material = material;
       node.castShadow = false;
       node.receiveShadow = key === 'M_DuelCloth';
@@ -216,15 +219,21 @@ export class DuelHall {
         metalnessMap: tex.clothOrm,
         roughness: 1,
         metalness: 1,
-        sheen: 1,
-        sheenColor: new Color(0x5a73ff),
-        sheenRoughness: 0.35,
+        // Dark midnight velvet. The stage's HDR probe is a bright sunrise, and
+        // its reflection is what turned the cloth royal blue — so the velvet
+        // keeps little of it, a weak specular and only a faint deep-blue sheen.
+        sheen: 0.15,
+        sheenColor: new Color(0x141e55),
+        sheenRoughness: 0.4,
+        specularIntensity: 0.35,
+        envMapIntensity: 0.15,
         emissiveMap: tex.clothEmissive,
         emissive: new Color(0xffffff),
         emissiveIntensity: 1.6
       })
     );
     this._patchFloorHoles(cloth);
+    this._patchVelvet(cloth);
     const disc = stone(new Color(0.95, 0.85, 0.72), 0.85);
     this._patchFloorHoles(disc);
 
@@ -244,11 +253,12 @@ export class DuelHall {
       M_DarkWood: track(new MeshStandardMaterial({ color: 0x2a140b, roughness: 0.5 })),
       M_Gold: track(new MeshStandardMaterial({ color: 0xf2a84a, metalness: 1, roughness: 0.3 })),
       M_GoldGlow: track(new MeshBasicMaterial({ color: new Color(3.2, 2.1, 1.0), fog: false })),
-      M_StainedGlass: track(new MeshBasicMaterial({ map: tex.glass, color: new Color(1.7, 1.7, 1.7) })),
+      // Moonlit from outside: dim and blue-shifted.
+      M_StainedGlass: track(new MeshBasicMaterial({ map: tex.glass, color: new Color(0.5, 0.62, 1.15) })),
       M_Wax: track(
-        new MeshStandardMaterial({ color: 0xeadcb8, roughness: 0.5, emissive: 0xff9a40, emissiveIntensity: 0.25 })
+        new MeshStandardMaterial({ color: 0xeadcb8, roughness: 0.5, emissive: 0xff9a40, emissiveIntensity: 0.6 })
       ),
-      M_Flame: track(new MeshBasicMaterial({ color: new Color(4.0, 2.2, 0.8), fog: false })),
+      M_Flame: track(new MeshBasicMaterial({ color: new Color(5.0, 2.6, 0.9), fog: false })),
       M_Books: track(new MeshStandardMaterial({ vertexColors: true, roughness: 0.6 })),
       M_RuneRingGlow: this.runeMaterial,
       M_BannerCrimson: bannerMats[0],
@@ -258,7 +268,36 @@ export class DuelHall {
     };
     // The shaft mesh has no material slot; `_collectAnimated` finds it by name.
     this._disc = disc;
+    this._nightSky = track(new MeshBasicMaterial({ color: new Color(0.35, 0.5, 1.0), fog: false }));
     return mats;
+  }
+
+  /**
+   * Darken the velvet without touching the embroidery: the gold is the
+   * metallic part of the cloth's ORM map, so everything that is not metal is
+   * scaled by `settings.hall.carpetBrightness`. The stage key lights the cloth
+   * head-on, so the albedo alone cannot keep it a dark midnight blue.
+   */
+  _patchVelvet(material) {
+    this._velvet = { value: settings.hall.carpetBrightness };
+    this.environment.registerShadowCasterWithPatch(
+      material,
+      (shader) => {
+        shader.uniforms.uVelvet = this._velvet;
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', `#include <common>
+uniform float uVelvet;`)
+          .replace(
+            '#include <map_fragment>',
+            `#include <map_fragment>
+             #ifdef USE_METALNESSMAP
+               float goldMask = smoothstep(0.05, 0.5, texture2D(metalnessMap, vMetalnessMapUv).b);
+               diffuseColor.rgb *= mix(uVelvet, 1.0, goldMask);
+             #endif`
+          );
+      },
+      'duelhall-velvet'
+    );
   }
 
   /** The same openings `Ground` cuts (see world/FloorHoles.js). */
@@ -305,7 +344,7 @@ export class DuelHall {
       uniforms: {
         uTime: { value: 0 },
         uIntensity: { value: 1 },
-        uColor: { value: new Color(1.0, 0.78, 0.5) }
+        uColor: { value: new Color(0.55, 0.7, 1.0) } // moonlight
       },
       vertexShader: /* glsl */ `
         varying vec2 vUv;
@@ -352,6 +391,10 @@ export class DuelHall {
       nodes[0].traverse((n) => n.isMesh && prims.push(n));
       return prims.map((prim, p) => {
         const material = mats[prim.material?.name] ?? prim.material;
+        // The book colours were painted into the second colour set; COLOR_0 is
+        // an untouched all-white layer the export carries along.
+        const tint = prim.geometry.getAttribute('color_1');
+        if (tint) prim.geometry.setAttribute('color', tint);
         const mesh = new InstancedMesh(prim.geometry, material, nodes.length);
         mesh.name = `${name}_${p}`;
         nodes.forEach((node, i) => {
@@ -434,7 +477,7 @@ export class DuelHall {
       fog: false,
       uniforms: {
         uTime: { value: 0 },
-        uSize: { value: 1.6 },
+        uSize: { value: 2.1 },
         uAmount: { value: 1 },
         uPixelRatio: { value: this.environment.renderer?.gl.getPixelRatio() ?? 1 }
       },
@@ -505,6 +548,7 @@ export class DuelHall {
     this.godRayMaterial.uniforms.uTime.value = elapsed;
     this.godRayMaterial.uniforms.uIntensity.value = hall.godRays;
     this.runeMaterial.opacity = hall.runeGlow;
+    if (this._velvet) this._velvet.value = hall.carpetBrightness;
 
     // Floating candles: a slow, individual bob; flames and halos ride along.
     if (this.candles) {

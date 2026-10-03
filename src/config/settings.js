@@ -2779,6 +2779,7 @@ export const settings = {
     godRays: 1.0,
     runeGlow: 1.0,
     candleGlow: 1.0,
+    carpetBrightness: 0.35, // velvet only — the gold embroidery keeps its value
     motion: 1.0 // speed of the candles, rune rings and orrery
   },
 
@@ -2788,13 +2789,6 @@ export const settings = {
   post: {
     enabled: true,
     exposure: 1.05,
-    // Threshold sits above the ice body's lit value on purpose: only the rim,
-    // the glints and the impact should bloom, not the whole crystal field.
-    // Strength is deliberately near zero — the crystal silhouette carries the
-    // read, and bloom was the thing eating it. Push it up if you want the halo.
-    bloomStrength: 0.03,
-    bloomRadius: 0.6,
-    bloomThreshold: 0.88,
     vignette: 0.52,
     chromaticAberration: 0.4,
     contrast: 1.12,

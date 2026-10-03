@@ -9,7 +9,6 @@ import {
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GradeShader } from './GradeShader.js';
 import { DistortionShader } from './DistortionShader.js';
@@ -45,7 +44,7 @@ function hasVisibleDistortion(node) {
  *   1. depth prepass  — opaque WORLD layer into a packed-depth buffer, which
  *                       every VFX shader samples for soft intersections
  *   2. distortion     — DISTORTION layer into an offset buffer
- *   3. composer       — scene → refraction → bloom → tone map → grade
+ *   3. composer       — scene → refraction → tone map → grade
  *
  * Passes 1 and 2 run at half resolution: both are only ever read as smooth,
  * low-frequency data, so full resolution would be wasted fill rate. They are
@@ -97,14 +96,6 @@ export class PostProcessing {
     this.distortionPass = new ShaderPass(DistortionShader);
     this.distortionPass.uniforms.tDistortion.value = this.distortionTarget.texture;
     this.composer.addPass(this.distortionPass);
-
-    this.bloomPass = new UnrealBloomPass(
-      new Vector2(size.x, size.y),
-      settings.post.bloomStrength,
-      settings.post.bloomRadius,
-      settings.post.bloomThreshold
-    );
-    this.composer.addPass(this.bloomPass);
 
     // Tone mapping + sRGB conversion happen here; everything before is linear HDR.
     this.outputPass = new OutputPass();
@@ -212,11 +203,6 @@ export class PostProcessing {
   sync(elapsed, flash) {
     const post = settings.post;
 
-    this.bloomPass.strength = post.bloomStrength;
-    this.bloomPass.radius = post.bloomRadius;
-    this.bloomPass.threshold = post.bloomThreshold;
-    this.bloomPass.enabled = post.enabled && post.bloomStrength > 0.001;
-
     const u = this.gradePass.uniforms;
     u.uTime.value = elapsed;
     u.uAberration.value = post.enabled ? post.chromaticAberration : 0;
@@ -275,7 +261,6 @@ export class PostProcessing {
   setSize(width, height, pixelRatio) {
     this.composer.setPixelRatio(pixelRatio);
     this.composer.setSize(width, height);
-    this.bloomPass.setSize(width, height);
 
     const w = Math.floor(width * pixelRatio);
     const h = Math.floor(height * pixelRatio);
