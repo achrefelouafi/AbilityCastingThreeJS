@@ -2771,6 +2771,18 @@ export const settings = {
   },
 
   /* ------------------------------------------------------------------ */
+  /* Duel hall (world/DuelHall.js)                                       */
+  /* ------------------------------------------------------------------ */
+  hall: {
+    enabled: true, // off: back to the stone stage plane
+    lightIntensity: 1.0, // the hall's warm point lights and violet underglow
+    godRays: 1.0,
+    runeGlow: 1.0,
+    candleGlow: 1.0,
+    motion: 1.0 // speed of the candles, rune rings and orrery
+  },
+
+  /* ------------------------------------------------------------------ */
   /* Post processing                                                     */
   /* ------------------------------------------------------------------ */
   post: {

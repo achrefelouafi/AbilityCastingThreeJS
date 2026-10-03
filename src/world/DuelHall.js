@@ -1,0 +1,552 @@
+import {
+  Group,
+  Mesh,
+  Points,
+  InstancedMesh,
+  BufferGeometry,
+  BufferAttribute,
+  Matrix4,
+  Quaternion,
+  Vector3,
+  Color,
+  PointLight,
+  MeshStandardMaterial,
+  MeshPhysicalMaterial,
+  MeshBasicMaterial,
+  ShaderMaterial,
+  AdditiveBlending,
+  DoubleSide,
+  RepeatWrapping,
+  SRGBColorSpace
+} from 'three';
+import { settings } from '../config/settings.js';
+import { LAYER } from '../core/Layers.js';
+import { getStoneTextures, STONE_TILE_METRES } from '../loaders/StoneTextures.js';
+import { floorHoles, MAX_FLOOR_HOLES } from './FloorHoles.js';
+
+const MODEL_URL = './models/duel_hall.glb';
+const TEX = './textures/duelhall/';
+
+/** The Blender export lays stone UVs out at one unit per this many metres. */
+const UV_METRES = 4;
+
+const _m = new Matrix4();
+const _q = new Quaternion();
+const _p = new Vector3();
+const _s = new Vector3();
+const _axisY = new Vector3(0, 1, 0);
+
+/**
+ * The Duel Hall: a floating, cloth-draped duelling platform inside a round
+ * gothic hall (authored in Blender — `art/duel_hall/duel_hall.blend`).
+ *
+ * The platform's cloth *is* the stage floor while the hall is up. Its top sits
+ * exactly on y = 0 and spans 16.3 m, so the targets' spawn ring (13 m) stays on
+ * it, and it carries the same floor-hole discard as `Ground` so an ability that
+ * opens the floor still opens this one. `Ground` is hidden instead of removed —
+ * AR mode needs it back as the shadow catcher, and the hall steps out there.
+ *
+ * Everything in the export is rebuilt here by material name rather than taken
+ * from the glTF: the Blender look is procedural node work that does not export,
+ * so stone borrows the shared photographic scan (`StoneTextures`), the cloth and
+ * glass use maps baked out of the same scene, and the glows are additive
+ * materials on LAYER.VFX so they stay out of the depth prepass.
+ *
+ * Repeated props (256 bookshelves, ~250 floating candles) arrive as hundreds of
+ * nodes sharing a mesh and are folded into InstancedMeshes, so the whole hall
+ * draws in well under a hundred calls.
+ *
+ * The hall's lights are created once, before the boot warm-up, and never
+ * removed: switching it off zeroes their intensity instead, because a change in
+ * light count would recompile every lit material in the scene.
+ */
+export class DuelHall {
+  /**
+   * @param {import('./Environment.js').Environment} environment
+   * @param {import('./Ground.js').Ground} ground
+   */
+  constructor(environment, ground) {
+    this.environment = environment;
+    this.ground = ground;
+    this.group = new Group();
+    this.group.name = 'DuelHall';
+    this.loaded = false;
+    this._ar = false;
+
+    /** Spinning parts: { object, base quaternion, turns per second, local? }. */
+    this._spinners = [];
+    /** Bobbing parts: { object, base y, amplitude, speed, phase }. */
+    this._bobbers = [];
+    this._materials = [];
+    this._textures = [];
+
+    // Warm hall light: one over the platform (the orrery's sun) and a ring of
+    // candle-height fills. No shadows — the sun owns the shadow map.
+    this.lights = [];
+    const orrery = new PointLight(0xffb066, 0, 0, 2);
+    orrery.position.set(0, 23, 0);
+    this.lights.push({ light: orrery, base: 1400 });
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      const fill = new PointLight(0xffa25a, 0, 0, 2);
+      fill.position.set(Math.cos(a) * 24, 11, Math.sin(a) * 24);
+      this.lights.push({ light: fill, base: 260 });
+    }
+    // Violet levitation glow from under the platform.
+    const under = new PointLight(0x8a55ff, 0, 0, 2);
+    under.position.set(0, -9, 0);
+    this.lights.push({ light: under, base: 420 });
+    for (const { light } of this.lights) this.group.add(light);
+  }
+
+  /** @param {import('../loaders/AssetLoader.js').AssetLoader} assets */
+  async load(assets) {
+    const [gltf, tex] = await Promise.all([
+      assets.loadGLTF(MODEL_URL),
+      this._loadTextures(assets)
+    ]);
+    this._tex = tex;
+    const mats = this._buildMaterials(tex);
+
+    const root = gltf.scene;
+    root.updateMatrixWorld(true);
+
+    const instanced = { shelf: [], candle: [], flame: [] };
+    root.traverse((node) => {
+      const name = node.name ?? '';
+      if (name.startsWith('Shelf_')) instanced.shelf.push(node);
+      else if (name.startsWith('CandleFlame_')) instanced.flame.push(node);
+      else if (name.startsWith('Candle_')) instanced.candle.push(node);
+    });
+    // Strip the instanced nodes out before anything else touches the tree.
+    for (const list of Object.values(instanced)) for (const node of list) node.removeFromParent();
+
+    root.traverse((node) => {
+      if (!node.isMesh) return;
+      const key = node.material?.name ?? '';
+      // The stone under the cloth shares the trim look but has to open with it.
+      const material = node.name === 'PlatformDisc' ? this._disc : mats[key];
+      if (material) node.material = material;
+      node.castShadow = false;
+      node.receiveShadow = key === 'M_DuelCloth';
+      if (material?.userData.vfx) node.layers.set(LAYER.VFX);
+    });
+
+    this.group.add(root);
+    this._buildInstances(instanced, mats);
+    this._collectAnimated(root);
+    this._buildCandleGlow(instanced.flame);
+
+    this.loaded = true;
+    this.setVisible(settings.hall.enabled);
+  }
+
+  async _loadTextures(assets) {
+    const load = async (file, srgb) => {
+      const texture = await assets.loadTexture(TEX + file);
+      if (srgb) texture.colorSpace = SRGBColorSpace;
+      texture.anisotropy = 8;
+      this._textures.push(texture);
+      return texture;
+    };
+    const [clothColor, clothOrm, clothEmissive, runeGlow, glass, ...banners] = await Promise.all([
+      load('cloth_color.jpg', true),
+      load('cloth_orm.png', false),
+      load('cloth_emissive.jpg', true),
+      load('rune_glow.jpg', true),
+      load('stained_glass.jpg', true),
+      load('banner_crimson.jpg', true),
+      load('banner_sapphire.jpg', true),
+      load('banner_emerald.jpg', true),
+      load('banner_amber.jpg', true)
+    ]);
+    // glTF UVs have v pointing down the image; these maps were written for it.
+    for (const t of [clothColor, clothOrm, clothEmissive, runeGlow, glass, ...banners]) t.flipY = false;
+
+    // The shared rock scan, tiled for the export's metre-based UVs. Clones so
+    // the repeat here never leaks into the abilities that borrow the same maps.
+    const stoneSrc = getStoneTextures();
+    const stone = {};
+    for (const slot of ['map', 'normalMap', 'roughnessMap', 'aoMap']) {
+      const t = stoneSrc[slot].clone();
+      t.wrapS = t.wrapT = RepeatWrapping;
+      t.repeat.set(UV_METRES / STONE_TILE_METRES, UV_METRES / STONE_TILE_METRES);
+      t.needsUpdate = true;
+      this._textures.push(t);
+      stone[slot] = t;
+    }
+    return { clothColor, clothOrm, clothEmissive, runeGlow, glass, banners, stone };
+  }
+
+  _buildMaterials(tex) {
+    const track = (m) => (this._materials.push(m), m);
+    const stone = (color, roughness = 0.9) =>
+      track(
+        new MeshStandardMaterial({
+          color,
+          roughness,
+          metalness: 0,
+          map: tex.stone.map,
+          normalMap: tex.stone.normalMap,
+          roughnessMap: tex.stone.roughnessMap,
+          aoMap: tex.stone.aoMap
+        })
+      );
+    const glow = (map, color, opacity = 1) => {
+      const m = track(
+        new MeshBasicMaterial({
+          map,
+          color,
+          transparent: true,
+          opacity,
+          blending: AdditiveBlending,
+          depthWrite: false,
+          side: DoubleSide,
+          fog: false
+        })
+      );
+      m.userData.vfx = true;
+      return m;
+    };
+
+    const cloth = track(
+      new MeshPhysicalMaterial({
+        map: tex.clothColor,
+        roughnessMap: tex.clothOrm,
+        metalnessMap: tex.clothOrm,
+        roughness: 1,
+        metalness: 1,
+        sheen: 1,
+        sheenColor: new Color(0x5a73ff),
+        sheenRoughness: 0.35,
+        emissiveMap: tex.clothEmissive,
+        emissive: new Color(0xffffff),
+        emissiveIntensity: 1.6
+      })
+    );
+    this._patchFloorHoles(cloth);
+    const disc = stone(new Color(0.95, 0.85, 0.72), 0.85);
+    this._patchFloorHoles(disc);
+
+    this.runeMaterial = glow(tex.runeGlow, new Color(2.2, 2.2, 2.2));
+    this.godRayMaterial = this._godRayMaterial();
+
+    const bannerMats = tex.banners.map((map) =>
+      track(new MeshStandardMaterial({ map, roughness: 0.75, side: DoubleSide }))
+    );
+
+    const mats = {
+      M_DuelCloth: cloth,
+      M_StoneWall: stone(new Color(0.62, 0.53, 0.44)),
+      M_StoneTrim: stone(new Color(0.95, 0.85, 0.72), 0.85),
+      M_StoneFloor: stone(new Color(0.42, 0.37, 0.33)),
+      M_PlatformRock: stone(new Color(0.32, 0.29, 0.31)),
+      M_DarkWood: track(new MeshStandardMaterial({ color: 0x2a140b, roughness: 0.5 })),
+      M_Gold: track(new MeshStandardMaterial({ color: 0xf2a84a, metalness: 1, roughness: 0.3 })),
+      M_GoldGlow: track(new MeshBasicMaterial({ color: new Color(3.2, 2.1, 1.0), fog: false })),
+      M_StainedGlass: track(new MeshBasicMaterial({ map: tex.glass, color: new Color(1.7, 1.7, 1.7) })),
+      M_Wax: track(
+        new MeshStandardMaterial({ color: 0xeadcb8, roughness: 0.5, emissive: 0xff9a40, emissiveIntensity: 0.25 })
+      ),
+      M_Flame: track(new MeshBasicMaterial({ color: new Color(4.0, 2.2, 0.8), fog: false })),
+      M_Books: track(new MeshStandardMaterial({ vertexColors: true, roughness: 0.6 })),
+      M_RuneRingGlow: this.runeMaterial,
+      M_BannerCrimson: bannerMats[0],
+      M_BannerSapphire: bannerMats[1],
+      M_BannerEmerald: bannerMats[2],
+      M_BannerAmber: bannerMats[3]
+    };
+    // The shaft mesh has no material slot; `_collectAnimated` finds it by name.
+    this._disc = disc;
+    return mats;
+  }
+
+  /** The same openings `Ground` cuts (see world/FloorHoles.js). */
+  _patchFloorHoles(material) {
+    this.environment.registerShadowCasterWithPatch(
+      material,
+      (shader) => {
+        shader.uniforms.uFloorHoles = floorHoles.uniform;
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', `#include <common>\nvarying vec3 vHallWorld;`)
+          .replace(
+            '#include <begin_vertex>',
+            `#include <begin_vertex>\nvHallWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;`
+          );
+        shader.fragmentShader = shader.fragmentShader
+          .replace(
+            '#include <common>',
+            `#include <common>
+             varying vec3 vHallWorld;
+             #define MAX_FLOOR_HOLES ${MAX_FLOOR_HOLES}
+             uniform vec4 uFloorHoles[MAX_FLOOR_HOLES];`
+          )
+          .replace(
+            '#include <clipping_planes_fragment>',
+            `#include <clipping_planes_fragment>
+             for (int i = 0; i < MAX_FLOOR_HOLES; i++) {
+               vec4 hole = uFloorHoles[i];
+               if (hole.z > 0.0 && distance(vHallWorld.xz, hole.xy) < hole.z) discard;
+             }`
+          );
+      },
+      'duelhall-floor-holes'
+    );
+  }
+
+  /** Soft additive light shafts: bright at the window, fading down the beam and at its silhouette. */
+  _godRayMaterial() {
+    const m = new ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      side: DoubleSide,
+      fog: false,
+      uniforms: {
+        uTime: { value: 0 },
+        uIntensity: { value: 1 },
+        uColor: { value: new Color(1.0, 0.78, 0.5) }
+      },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        varying vec3 vNormalW;
+        varying vec3 vViewDir;
+        varying vec3 vWorld;
+        void main() {
+          vUv = uv;
+          vec4 world = modelMatrix * vec4(position, 1.0);
+          vWorld = world.xyz;
+          vNormalW = normalize(mat3(modelMatrix) * normal);
+          vViewDir = normalize(cameraPosition - world.xyz);
+          gl_Position = projectionMatrix * viewMatrix * world;
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform float uTime;
+        uniform float uIntensity;
+        uniform vec3 uColor;
+        varying vec2 vUv;
+        varying vec3 vNormalW;
+        varying vec3 vViewDir;
+        varying vec3 vWorld;
+        void main() {
+          float along = vUv.y;
+          float fade = pow(1.0 - along, 1.6) * smoothstep(0.0, 0.06, along);
+          float facing = pow(abs(dot(normalize(vNormalW), normalize(vViewDir))), 1.4);
+          // Slow drifting streaks of dust inside the beam.
+          float streak = 0.65 + 0.35 * sin(vUv.x * 40.0 + vWorld.y * 0.35 + uTime * 0.25)
+                                     * sin(vUv.x * 13.0 - uTime * 0.17);
+          float a = fade * facing * streak * 0.055 * uIntensity;
+          gl_FragColor = vec4(uColor * a, 1.0);
+        }`
+    });
+    m.userData.vfx = true;
+    this._materials.push(m);
+    return m;
+  }
+
+  /** Fold the repeated nodes into one InstancedMesh per primitive. */
+  _buildInstances(instanced, mats) {
+    const build = (nodes, name) => {
+      if (!nodes.length) return [];
+      const prims = [];
+      nodes[0].traverse((n) => n.isMesh && prims.push(n));
+      return prims.map((prim, p) => {
+        const material = mats[prim.material?.name] ?? prim.material;
+        const mesh = new InstancedMesh(prim.geometry, material, nodes.length);
+        mesh.name = `${name}_${p}`;
+        nodes.forEach((node, i) => {
+          // node.matrixWorld was computed while it was still under the export root.
+          const target = node.isMesh ? node : node.children[p] ?? node;
+          mesh.setMatrixAt(i, target === node ? node.matrixWorld : _m.multiplyMatrices(node.matrixWorld, target.matrix));
+        });
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.computeBoundingSphere();
+        if (material?.userData?.vfx) mesh.layers.set(LAYER.VFX);
+        this.group.add(mesh);
+        return mesh;
+      });
+    };
+
+    this.shelves = build(instanced.shelf, 'Bookshelves');
+    const [candles] = build(instanced.candle, 'Candles');
+    const [flames] = build(instanced.flame, 'CandleFlames');
+    this.candles = candles;
+    this.flames = flames;
+
+    // Per-candle bob state, and each flame's offset from its candle.
+    this._candleBase = instanced.candle.map((node) => node.matrixWorld.clone());
+    this._flameLocal = instanced.flame.map((node) => node.matrix.clone());
+    this._flameOwner = instanced.flame.map((node) => instanced.candle.indexOf(node.parent));
+    // Flames were children: their parent is gone now, so look them up by name.
+    if (this._flameOwner.some((i) => i < 0)) {
+      const byName = new Map(instanced.candle.map((n, i) => [n.name.slice('Candle_'.length), i]));
+      this._flameOwner = instanced.flame.map((n) => byName.get(n.name.slice('CandleFlame_'.length)) ?? 0);
+    }
+    this._candlePhase = instanced.candle.map(() => Math.random() * Math.PI * 2);
+    this._candleSpeed = instanced.candle.map(() => 0.35 + Math.random() * 0.35);
+  }
+
+  _collectAnimated(root) {
+    const spin = (name, turnsPerSecond, local = false) => {
+      const object = root.getObjectByName(name);
+      if (object) this._spinners.push({ object, base: object.quaternion.clone(), rate: turnsPerSecond, local });
+    };
+    spin('RuneRing_A', 0.012);
+    spin('RuneRing_B', -0.018);
+    spin('RuneRing_C', 0.025);
+    spin('FloorSigil', -0.005);
+    spin('DebrisRocks', 0.004);
+    spin('OrreryRing_0', 0.008, true);
+    spin('OrreryRing_1', -0.012, true);
+    spin('OrreryRing_2', 0.017, true);
+    spin('OrreryRing_3', -0.025, true);
+    spin('OrreryCage', 0.03, true);
+
+    const debris = root.getObjectByName('DebrisRocks');
+    if (debris) this._bobbers.push({ object: debris, base: debris.position.y, amp: 0.25, speed: 0.2, phase: 0 });
+
+    const shafts = root.getObjectByName('GodRayShafts');
+    if (shafts) {
+      shafts.traverse((n) => {
+        if (!n.isMesh) return;
+        n.material = this.godRayMaterial;
+        n.layers.set(LAYER.VFX);
+        n.renderOrder = 2;
+      });
+    }
+  }
+
+  /** A soft additive halo on every flame — one Points draw. */
+  _buildCandleGlow(flameNodes) {
+    const count = flameNodes.length;
+    if (!count) return;
+    const geometry = new BufferGeometry();
+    this._glowPositions = new Float32Array(count * 3);
+    const seeds = new Float32Array(count);
+    for (let i = 0; i < count; i++) seeds[i] = Math.random();
+    geometry.setAttribute('position', new BufferAttribute(this._glowPositions, 3));
+    geometry.setAttribute('aSeed', new BufferAttribute(seeds, 1));
+
+    this.glowMaterial = new ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      fog: false,
+      uniforms: {
+        uTime: { value: 0 },
+        uSize: { value: 1.6 },
+        uAmount: { value: 1 },
+        uPixelRatio: { value: this.environment.renderer?.gl.getPixelRatio() ?? 1 }
+      },
+      vertexShader: /* glsl */ `
+        uniform float uTime;
+        uniform float uSize;
+        uniform float uPixelRatio;
+        attribute float aSeed;
+        varying float vFlicker;
+        void main() {
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vFlicker = 0.8 + 0.2 * sin(uTime * (7.0 + aSeed * 5.0) + aSeed * 40.0);
+          gl_PointSize = uSize * uPixelRatio * (projectionMatrix[1][1] * 300.0) / -mv.z;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform float uAmount;
+        varying float vFlicker;
+        void main() {
+          float d = length(gl_PointCoord - 0.5) * 2.0;
+          float core = exp(-d * d * 18.0);
+          float halo = exp(-d * d * 3.5) * 0.35;
+          float a = (core + halo) * smoothstep(1.0, 0.7, d) * vFlicker * uAmount;
+          gl_FragColor = vec4(vec3(1.0, 0.62, 0.28) * a, 1.0);
+        }`
+    });
+    this._materials.push(this.glowMaterial);
+    this.glow = new Points(geometry, this.glowMaterial);
+    this.glow.frustumCulled = false;
+    this.glow.layers.set(LAYER.VFX);
+    this.group.add(this.glow);
+  }
+
+  setVisible(on) {
+    this._visible = on;
+    this.group.visible = on && !this._ar;
+    // The stage floor: the cloth while the hall is up, the stone plane otherwise.
+    // AR always wants the plane — it is the shadow catcher there.
+    this.ground.mesh.visible = !this.group.visible;
+    this._applyLightLevels();
+  }
+
+  setAR(on) {
+    this._ar = on;
+    this.setVisible(this._visible ?? settings.hall.enabled);
+  }
+
+  _applyLightLevels() {
+    const k = this.group.visible ? settings.hall.lightIntensity : 0;
+    for (const { light, base } of this.lights) light.intensity = base * k;
+  }
+
+  update(dt, elapsed) {
+    if (!this.loaded) return;
+    const hall = settings.hall;
+    if (hall.enabled !== this._visible) this.setVisible(hall.enabled);
+    if (!this.group.visible) return;
+    this._applyLightLevels();
+
+    const t = elapsed * hall.motion;
+    for (const s of this._spinners) {
+      _q.setFromAxisAngle(_axisY, t * s.rate * Math.PI * 2);
+      if (s.local) s.object.quaternion.copy(s.base).multiply(_q);
+      else s.object.quaternion.copy(_q).multiply(s.base);
+    }
+    for (const b of this._bobbers) b.object.position.y = b.base + Math.sin(t * b.speed + b.phase) * b.amp;
+
+    this.godRayMaterial.uniforms.uTime.value = elapsed;
+    this.godRayMaterial.uniforms.uIntensity.value = hall.godRays;
+    this.runeMaterial.opacity = hall.runeGlow;
+
+    // Floating candles: a slow, individual bob; flames and halos ride along.
+    if (this.candles) {
+      const n = this._candleBase.length;
+      const bobs = this._bobOffsets ?? (this._bobOffsets = new Float32Array(n));
+      for (let i = 0; i < n; i++) {
+        const y = Math.sin(t * this._candleSpeed[i] + this._candlePhase[i]) * 0.18;
+        bobs[i] = y;
+        _m.copy(this._candleBase[i]);
+        _m.elements[13] += y;
+        this.candles.setMatrixAt(i, _m);
+      }
+      this.candles.instanceMatrix.needsUpdate = true;
+      if (this.flames) {
+        for (let i = 0; i < this._flameLocal.length; i++) {
+          const owner = this._flameOwner[i];
+          _m.copy(this._candleBase[owner]);
+          _m.elements[13] += bobs[owner];
+          _m.multiply(this._flameLocal[i]);
+          this.flames.setMatrixAt(i, _m);
+          if (this._glowPositions) {
+            _m.decompose(_p, _q, _s);
+            this._glowPositions[i * 3] = _p.x;
+            this._glowPositions[i * 3 + 1] = _p.y + 0.05;
+            this._glowPositions[i * 3 + 2] = _p.z;
+          }
+        }
+        this.flames.instanceMatrix.needsUpdate = true;
+      }
+      if (this.glow) {
+        this.glow.geometry.attributes.position.needsUpdate = true;
+        this.glowMaterial.uniforms.uTime.value = elapsed;
+        this.glowMaterial.uniforms.uAmount.value = hall.candleGlow;
+      }
+    }
+  }
+
+  dispose() {
+    this.group.traverse((n) => {
+      if (n.isMesh || n.isPoints) n.geometry.dispose();
+    });
+    for (const m of this._materials) m.dispose();
+    for (const t of this._textures) t.dispose();
+  }
+}

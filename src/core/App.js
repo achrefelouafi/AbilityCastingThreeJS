@@ -9,6 +9,7 @@ import { Environment } from '../world/Environment.js';
 import { Ground } from '../world/Ground.js';
 import { DustMotes } from '../world/DustMotes.js';
 import { ContactShadows } from '../world/ContactShadows.js';
+import { DuelHall } from '../world/DuelHall.js';
 
 import { AssetLoader } from '../loaders/AssetLoader.js';
 import { getStoneTextures } from '../loaders/StoneTextures.js';
@@ -118,6 +119,8 @@ export class App {
     this.contactShadows = new ContactShadows(this.renderer, { size: 2.6, height: 2.4, blur: 2.0 });
 
     this.scene.add(this.ground.mesh, this.dust.points, this.contactShadows.group);
+    this.hall = new DuelHall(this.environment, this.ground);
+    this.scene.add(this.hall.group);
     this.dust.setPixelRatio(this.renderer.gl.getPixelRatio());
 
     /* ---- shared VFX services ---- */
@@ -729,6 +732,9 @@ export class App {
     this.loading.setProgress(0.35, 'Loading floor…');
     await this.ground.loadTextures(assets);
 
+    this.loading.setProgress(0.42, 'Raising the duel hall…');
+    await this.hall.load(assets);
+
     this.loading.setProgress(0.5, 'Loading character…');
     await this.character.load(assets);
 
@@ -1013,6 +1019,7 @@ export class App {
       this.post.setVideo(null);
       this.environment.setAR(false);
       this.ground.setShadowCatcher(false);
+      this.hall.setAR(false);
       this.rig.controls.enabled = true;
       this.camera.near = this._arSavedClip.near;
       this.camera.far = this._arSavedClip.far;
@@ -1047,6 +1054,7 @@ export class App {
     this.hud.setARVisible(true);
     this.environment.setAR(true);
     this.ground.setShadowCatcher(true);
+    this.hall.setAR(true);
     this.rig.controls.enabled = false;
     this.aim.cancel();
     // The camera now stands tens of metres out in game units — a phone half
@@ -1276,6 +1284,7 @@ export class App {
     this._slotReady = slotReady;
 
     this.ground.update(this.elapsed);
+    this.hall.update(dt, this.elapsed);
     this.dust.update(this.elapsed, this.character.position);
 
     this.abilities.update(dt);
@@ -1412,6 +1421,7 @@ export class App {
     this.dummies.dispose();
     this.character.dispose();
     this.ground.dispose();
+    this.hall.dispose();
     this.dust.dispose();
     this.contactShadows.dispose();
     this.post.dispose();
