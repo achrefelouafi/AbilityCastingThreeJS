@@ -14,6 +14,7 @@ import { DuelHall } from '../world/DuelHall.js';
 import { AssetLoader } from '../loaders/AssetLoader.js';
 import { getStoneTextures } from '../loaders/StoneTextures.js';
 import { buildSharkRig } from '../assets/SharkRig.js';
+import { buildWolfRig } from '../assets/WolfRig.js';
 import { buildDragonRig } from '../assets/DragonRig.js';
 import { buildGyroscopeRig } from '../assets/GyroscopeRig.js';
 import { buildAmethystRig } from '../assets/AmethystRig.js';
@@ -46,6 +47,7 @@ import { settings, ELEMENTS, ELEMENT_META } from '../config/settings.js';
 
 const HDR_URL = './hdri/spruit_sunrise.hdr';
 const SHARK_URL = './models/shark.glb';
+const WOLF_URL = './models/wolf.glb';
 const DRAGON_URL = './models/dragon.glb';
 const GYRO_URL = './models/magical_gyroscope.glb';
 const AMETHYST_URL = './models/amethyst_stones.glb';
@@ -154,6 +156,9 @@ export class App {
     /* ---- character ---- */
     this.character = new CharacterController(this.environment);
     this.scene.add(this.character.root);
+    // Built after the abilities, so it joins their shared context here: a cast
+    // that leaves from the hands needs to know where they are.
+    this.abilities.ctx.character = this.character;
 
     /* ---- input & targeting ---- */
     this.input = new InputManager(canvas);
@@ -523,6 +528,12 @@ export class App {
     const shark = await assets.loadGLTF(SHARK_URL);
     await assets.settled();
     this.models.shark = buildSharkRig(shark, { length: settings.shark.length });
+
+    this.loading.setProgress(0.8485, 'Calling the wolf…');
+    // Authored in Blender; without it the rifts still open, with nothing coming through.
+    const wolf = await assets.loadGLTF(WOLF_URL).catch(() => null);
+    await assets.settled();
+    this.models.wolf = wolf ? buildWolfRig(wolf, { length: settings.wolf.length }) : null;
 
     this.loading.setProgress(0.849, 'Waking the dragon…');
     const dragon = await assets.loadGLTF(DRAGON_URL);

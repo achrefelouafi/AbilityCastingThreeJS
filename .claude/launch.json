@@ -94,6 +94,34 @@
       ],
       "port": 5395,
       "url": "http://127.0.0.1:5395"
+    },
+    {
+      "name": "lance-verify",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5407",
+        "--strictPort"
+      ],
+      "port": 5407,
+      "url": "http://127.0.0.1:5407"
+    },
+    {
+      "name": "wolf-verify",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5412",
+        "--strictPort"
+      ],
+      "port": 5412,
+      "url": "http://127.0.0.1:5412"
     }
   ]
 }

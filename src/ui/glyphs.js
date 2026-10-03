@@ -153,8 +153,42 @@ const RELIQUARY = WRAP(`
   <path d="M10 92H90" stroke-width="3"/>
 `);
 
+/**
+ * Starbreaker Lance — the beam out of two palms into a star.
+ *
+ * A circle standing before the hands on the left, the beam as three straight
+ * strokes leaving it, a streamer wound round them, and the burst on the right.
+ */
+const LANCE = WRAP(`
+  <circle cx="20" cy="50" r="12" stroke-width="3"/>
+  <path d="M32 50H70" stroke-width="6"/>
+  <path d="M32 43L68 47M32 57L68 53" stroke-width="2.4"/>
+  <path d="M24 32C40 40 46 62 58 60C66 59 66 44 74 42" stroke-width="2.6"/>
+  <circle cx="78" cy="50" r="7"/>
+  <path d="M78 34V28M78 66V72M90 50H96M88 38L92 34M88 62L92 66M68 38L64 34M68 62L64 66" stroke-width="3"/>
+`);
+
+/**
+ * Astral Fang — a wolf's head between two rifts, over the rose.
+ *
+ * The Abyssal Maw's sigil turned on its side: the openings stand up, so they
+ * are two tall rings at the edges, the leap between them dashed out of the
+ * near one, and the head at the top of it with its jaw wide toward the far
+ * one. Under it, the four points of the compass rose that marked the prey.
+ */
+const WOLF = WRAP(`
+  <ellipse cx="11" cy="52" rx="6" ry="19"/>
+  <ellipse cx="89" cy="52" rx="6" ry="19"/>
+  <path d="M17 52C21 57 25 59 31 59" stroke-dasharray="4 4"/>
+  <path d="M31 59L37 41L40 27L48 38L55 28L59 41L79 46L82 49L66 52L60 55L77 61L73 64L56 67Z"/>
+  <circle cx="60" cy="45" r="1.6"/>
+  <path d="M50 76L52.5 84L60 86L52.5 88L50 96L47.5 88L40 86L47.5 84Z" stroke-width="3"/>
+`);
+
 /** Keyed by the ids in `ELEMENTS`. */
 export const ELEMENT_SIGILS = {
+  wolf: WOLF,
+  lance: LANCE,
   reliquary: RELIQUARY,
   tome: TOME,
   amethyst: AMETHYST,

@@ -29,7 +29,7 @@ export class HUD {
     root.innerHTML = `
       <div class="hud__panel hud__title">
         Elemental Sandbox
-        <span data-blurb>Press K, L, I, O, U, ; or ' (or 1–7), aim, click to cast.</span>
+        <span data-blurb>Press K, L, I, O, U, ;, ', Y or B (or 1–9), aim, click to cast.</span>
         <button class="hud__switch" type="button" data-castle role="switch" aria-checked="true" title="Castle (\`)">
           <span class="hud__switch-track"><span class="hud__switch-thumb"></span></span>
           <span class="hud__switch-label">Castle</span>
@@ -48,9 +48,10 @@ export class HUD {
         <div><strong>K</strong> — Abyssal Maw &nbsp; <strong>L</strong> — Chains of Penance</div>
         <div><strong>I</strong> — Dragonfire Circle &nbsp; <strong>O</strong> — Stormheart Gyroscope</div>
         <div><strong>U</strong> — Amethyst Verdict &nbsp; <strong>;</strong> — Astral Tome</div>
-        <div><strong>'</strong> — Wildroot Reliquary &nbsp; <strong>1</strong>–<strong>7</strong> — the same, by slot</div>
+        <div><strong>'</strong> — Wildroot Reliquary &nbsp; <strong>Y</strong> — Starbreaker Lance</div>
+        <div><strong>1</strong>–<strong>8</strong> — the same, by slot</div>
         <div class="hud__help-note">Every cast is a far cast — aimed with a circle.</div>
-        <div class="hud__help-note">K, L, U and ' are targeted: the circle locks onto the body under the cursor, and that one is taken.</div>
+        <div class="hud__help-note">K, L, U, ' and Y are targeted: the circle locks onto the body under the cursor, and that one is taken.</div>
         <div><strong>Move</strong> — aim &nbsp; <strong>Left click</strong> — cast</div>
         <div><strong>Esc / right click</strong> — cancel the cast</div>
         <div><strong>Right drag</strong> — orbit &nbsp; <strong>Scroll</strong> — zoom</div>
@@ -64,6 +65,7 @@ export class HUD {
         <div><kbd>N</kbd> AR mode &nbsp; <kbd>\`</kbd> castle on / off</div>
         <div class="hud__help-note">AR: point a camera at a printed page, drag the corners onto it, lock — the stage stands on it and follows the camera. The arrow sits under your real hand.</div>
         <div class="hud__help-note">Any cast that reaches a target one-shots it.</div>
+        <div class="hud__help-note">The Astral Fang (<strong>B</strong> / <strong>9</strong>, targeted) burns a gold rose under its target and tears a rift open beside it; the rose throws the body up, a wolf of starlight bursts out of the rift, takes it in its jaws and carries it into a second rift, and both implode behind it.</div>
         <div class="hud__help-note">The Abyssal Maw kicks its target up on a spike of rock, and a shark leaps out of one portal, takes it, and drags it down into the other.</div>
         <div class="hud__help-note">The Dragonfire Circle summons a dragon that flies the circle breathing fire onto its edge; the fire then runs inward and burns everything standing in it.</div>
         <div class="hud__help-note">The Chains of Penance throw a chain out of a portal at every limb, haul the body up, and tear it apart — each piece dragged back through its own portal.</div>
@@ -71,6 +73,7 @@ export class HUD {
         <div class="hud__help-note">The Amethyst Verdict writes a circle round its target with a socket at every point of a star; an amethyst point rises out of each, turns on the body, and they come in one after another and shatter on it.</div>
         <div class="hud__help-note">The Astral Tome is conjured at your shoulder and flies to the circle, swells, and opens an orrery over it; its planets tear free and fall as lights on everyone standing inside.</div>
         <div class="hud__help-note">The Wildroot Reliquary raises an arch of roots over its target and a ring of runestones in it; tendrils take the body by the wrists and ankles and hang it in the ring, the runes light, and the arch drags it down into the earth — leaving a sapling.</div>
+        <div class="hud__help-note">The Starbreaker Lance draws light into your hands and fires a beam wound in streamers into one target; it lands in a star of sparks, drives the body down the line and burns it away to light.</div>
         <div class="hud__help-note">Paused still applies every editor change.</div>
       </div>
 

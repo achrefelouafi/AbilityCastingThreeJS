@@ -5,6 +5,8 @@ import { GyroscopeAbility } from './GyroscopeAbility.js';
 import { AmethystAbility } from './AmethystAbility.js';
 import { TomeAbility } from './TomeAbility.js';
 import { ReliquaryAbility } from './ReliquaryAbility.js';
+import { LanceAbility } from './LanceAbility.js';
+import { WolfAbility } from './WolfAbility.js';
 import { ELEMENTS } from '../config/settings.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
@@ -16,7 +18,9 @@ const ABILITY_TYPES = {
   gyro: GyroscopeAbility,
   amethyst: AmethystAbility,
   tome: TomeAbility,
-  reliquary: ReliquaryAbility
+  reliquary: ReliquaryAbility,
+  lance: LanceAbility,
+  wolf: WolfAbility
 };
 
 const MAX_CONCURRENT = 4;

@@ -571,6 +571,158 @@ export const settings = {
   },
 
   /* ================================================================== */
+  /* WOLF — Astral Fang                                                  */
+  /* ================================================================== */
+  /**
+   * A **targeted** far cast, the Abyssal Maw's principle in starlight: a gold
+   * compass rose writes itself under the target and a rift tears open in the
+   * air beside it. The rose throws the body up on a shaft of light, a wolf
+   * made of light bursts out of the rift, takes it at the top of the throw,
+   * shakes it, and carries it into a second rift on the far side — and both
+   * implode behind it.
+   *
+   * As with the shark, the pounce is solved from these numbers every frame —
+   * the arc between the rifts, when the wolf has to leave for the jaw to
+   * arrive with the body — so dragging any of them re-plans a cast in the
+   * air. Times in **The timing** are seconds after the cast lands.
+   */
+  wolf: {
+    /* --- the cast --- */
+    range: 20.0,
+    minRange: 0,
+    speed: 70.0,
+    cooldown: 6.0,
+    castAnim: 'cast3',
+    zoneRadius: 1.1,
+    snapRadius: 2.4,
+    showTime: 3.2, // seconds from landing until both rifts have shut
+    fadeTime: 1.4, // seconds the sigils take to burn off the stone
+
+    /* --- the timing --- */
+    sigilTime: 0.4, // the rose writes itself
+    riftDelay: 0.08, // the near rift starts to tear
+    openTime: 0.42, // seconds a rift takes to iris open
+    liftDelay: 0.5, // the rose throws the body up
+    hangTime: 0.42, // seconds from the throw to the bite
+    farRiftLead: 0.42, // the far rift opens this long before the bite
+    closeDelay: 0.3, // after the last of it is through
+    closeTime: 0.5, // seconds to implode
+
+    /* --- 1 · the rifts --- */
+    riftRadius: 1.4, // metres
+    riftHeight: 1.45, // the middle of each, off the floor — they stand on it
+    riftSpan: 6.0, // metres from the target to each rift
+    riftFacing: 0.7, // how far each turns its face toward the caster
+    riftSwirl: 1.4, // radians/second the vortex turns
+    riftRim: 1.5,
+    filaments: 1.0,
+    nebula: 1.0,
+    riftStars: 1.0,
+    runeSpin: 0.04, // turns/second of the rune rings
+    warp: 0.8, // refraction round the rim
+    riftSigilRadius: 1.6, // the sigil on the floor under each rift
+    riftShake: 0.28,
+    riftLight: 16.0,
+    riftLightRadius: 8.0,
+    closeFlash: 0.04,
+
+    /* --- 2 · the mark --- */
+    sigilRadius: 2.5, // the rose under the target, metres
+    sigilGlow: 1.0,
+    column: 1.0, // the shaft of light the body is thrown up on
+    columnRadius: 0.6,
+    lift: {
+      impulse: 0.3, // m/s along the cast
+      lift: 5.0, // m/s up
+      spin: 1.4
+    },
+    hangGrip: 0.08, // how hard the body is steered onto the jaw's path
+    liftShake: 0.18,
+
+    /* --- 3 · the wolf --- */
+    length: 3.2, // metres, nose to tail — a dire wolf, not a dog
+    biteHeight: 2.1, // metres off the floor the body is taken at
+    runSpeed: 10.0, // m/s along the ground, and through the leap
+    stride: 3.4, // metres a gallop stride covers — the feet plant when this is right
+    gaitBlend: 0.08, // seconds the gallop and the pounce cross-fade over
+    footHeight: 0.05, // metres the paw bones ride over the stone
+    leapTime: 0.62, // seconds off the ground
+    biteAt: 0.42, // how far through the leap the jaw closes
+    arcPitch: 0.55, // how much it pitches along the leap (1 = nose along the arc)
+    minArc: 9.0, // the least gravity the leap is solved with, m/s² — keeps it a leap
+    runUp: 2.5, // metres it starts inside the near rift
+    runOut: 3.0, // metres it carries on into the far one
+    socketDepth: 0.05, // how far back into the mouth the body is held
+    biteSnap: 0.06,
+    grabJoint: 'Spine',
+    carryDrop: 0.75, // metres under the jaw the hips are carried
+    carryGrip: 0.14, // how hard, 0..1 per pass — a leash, so it still swings
+    thrashRoll: 18, // degrees the body twists with the head-shake
+    thrashRate: 2.6,
+    thrashTime: 0.7,
+    echoes: 3, // afterimages
+    echoLag: 0.045, // seconds between them
+    echoOpacity: 0.32,
+    flareGlow: 1.0, // how hard it lights up coming through and biting
+
+    /* --- 4 · the hologram --- */
+    rim: 1.5,
+    rimPower: 2.2,
+    wire: 1.0, // its own quads, drawn as light
+    wireWidth: 1.1, // pixels
+    flow: 0.9, // bands of light running nose to tail
+    flowSpeed: 1.6,
+    flowBands: 3.5,
+    innerStars: 1.0,
+    furDetail: 0.55, // how much of its own pelt shows through
+    fill: 1.0, // how solid the body reads
+    scanlines: 0.12,
+    seam: 2.6, // the white-hot cut where a rift crosses it
+    seamWidth: 0.14, // metres
+    halo: 0.9,
+    haloWidth: 0.05, // metres
+    haloPower: 2.0,
+
+    /* --- 5 · the prey --- */
+    stainTime: 0.45, // seconds the starlight takes to cover it
+    preyRim: 2.4,
+    preyEdge: 3.0,
+    preySeam: 3.0,
+    consumeDepth: 1.2, // metres past the far rift by which it is gone
+
+    /* --- 6 · the hits --- */
+    crossSparks: 140, // sparks off a rift's face as the wolf goes through
+    footDust: 1.0, // star dust kicked up by each paw
+    landShake: 0.22,
+    trailRate: 160, // star dust per second off it in flight
+    eyeTrail: 70, // sparks per second trailing from its eyes
+    biteSparks: 150,
+    biteShake: 0.42,
+    biteLight: 50.0,
+    biteFlash: 0.07,
+
+    /* --- the palette --- */
+    colorDeep: '#0a2a72',
+    colorCore: '#2f7dff',
+    colorRim: '#3fd2ff',
+    colorWire: '#7febff',
+    colorPrey: '#8fd0ff', // what the starlight turns the body
+    colorStar: '#ffffff',
+    colorHot: '#eafdff',
+    colorVoid: '#05030f',
+    colorNebula: '#6a35e0',
+    colorNebulaHot: '#ff5adf',
+    colorGold: '#ffc45e',
+    colorReticle: '#6fe6ff',
+    colorLocked: '#d6fbff',
+
+    /* --- light --- */
+    lightIntensity: 10.0,
+    lightRadius: 9.0,
+    lightColor: '#6fdcff'
+  },
+
+  /* ================================================================== */
   /* CHAINS — Chains of Penance                                          */
   /* ================================================================== */
   /**
@@ -1481,6 +1633,138 @@ export const settings = {
     lightColor: '#b06bff'
   },
 
+  /* ================================================================== */
+  /* LANCE — Starbreaker Lance                                           */
+  /* ================================================================== */
+  /**
+   * A **targeted shot**: the circle snaps onto the body under the cursor, and
+   * a beam is fired into it from the caster's hands. A magic circle writes
+   * itself under the caster while light is drawn in to the palms; the beam
+   * leaves wound in streamers, lands in a star of sparks, blows the body off
+   * its feet and stays on it, driving it along the line and burning it away
+   * to light, then collapses into the mark from behind.
+   *
+   * Times in **The timing** are seconds; everything else is metres unless it
+   * says otherwise. Everything is re-read every frame.
+   */
+  lance: {
+    /* --- the cast --- */
+    range: 22.0,
+    minRange: 0,
+    speed: 120.0, // the beam's head down the line, m/s
+    cooldown: 5.0,
+    castAnim: 'cast1',
+    zoneRadius: 1.2, // the circle round the target, metres
+    snapRadius: 2.4, // how far from the cursor a body is snapped onto, metres
+
+    /* --- the timing --- */
+    chargeTime: 0.42, // light drawn into the hands before the shot
+    beamTime: 1.0, // seconds the beam stays on the body
+    collapseTime: 0.35, // seconds it takes to be pulled into the mark
+    fadeTime: 0.9, // seconds the circles take to go
+
+    /* --- 1 · the hands --- */
+    handHeight: 1.3, // metres, where the shot leaves if the rig will not say
+    handForward: 0.5, // metres in front of the caster, the same
+    handFollow: 0.65, // how much the beam follows the real hands, 0..1
+    muzzle: 0.2, // metres it starts out in front of them
+    handSize: 0.6, // radius of the star between the palms
+    handIntensity: 0.7,
+    handLight: 8.0,
+    gatherRate: 60, // motes per second drawn in while charging
+    handSigilSize: 0.7, // radius of the circle standing before the hands
+    handSigilOffset: 0.35,
+    handSigilIntensity: 0.6,
+
+    /* --- 2 · the beam --- */
+    coreRadius: 0.16,
+    beamRadius: 0.42,
+    glowRadius: 0.9,
+    coreIntensity: 1.6,
+    beamIntensity: 0.9,
+    glowIntensity: 0.28,
+    startTaper: 0.35, // its radius at the hands, × the full radius
+    taperLength: 1.8, // metres it takes to open to full width
+    impactBulge: 0.5, // how much it swells into the mark
+    wobble: 0.03, // how much its skin boils
+    streakFrequency: 0.55, // striations per metre
+    streakSpeed: 34.0, // metres/second they race downrange
+    pulse: 0.05,
+    pulseSpeed: 22.0,
+    aimHeight: 1.0, // metres, where on a standing body it lands
+    trailRate: 30, // motes per second peeling off it
+    arcRate: 5, // arcs per second crawling over it
+    arcIntensity: 1.1,
+
+    /* --- 3 · the streamers --- */
+    ribbons: 4,
+    ribbonRadius: 0.5,
+    ribbonRadiusVariance: 0.45,
+    ribbonTwist: 0.14, // turns per metre down the shot
+    ribbonSpin: 5.0, // radians/second they wind
+    ribbonWidth: 0.045,
+    ribbonFlare: 1.0, // how wide they swirl round the caster, × radius
+    ribbonFlareLength: 3.0, // metres it takes them to close in on the beam
+    ribbonBehind: 1.6, // metres they reach back past the caster
+    ribbonBulge: 0.8, // how wide they open into the blast
+    ribbonIntensity: 0.75,
+
+    /* --- 4 · the blast --- */
+    novaSize: 2.4,
+    novaIntensity: 1.0,
+    burstSize: 2.4,
+    impactSparks: 160,
+    impactEmbers: 40,
+    sprayRate: 120, // sparks per second off the mark while it holds
+    emberRate: 30,
+    impactShake: 0.3,
+    impactFlash: 0.04,
+    impactLight: 30.0,
+    fireShake: 0.08,
+    fireLight: 10.0,
+    beamRumble: 0.035,
+    hit: {
+      impulse: 7.0,
+      lift: 3.2,
+      spin: 1.2
+    },
+    push: 9.0, // m/s² the beam drives the body along the line
+    pushLift: 2.0,
+    disintegrate: true, // the body burns away under the beam
+    burnStart: 0.35, // fraction of the beam time before it starts to go
+    burn: {
+      color: '#0d1a33',
+      rimColor: '#7fe6ff',
+      rimEmissive: 4.0,
+      edgeColor: '#e6f6ff',
+      edgeEmissive: 9.0
+    },
+
+    /* --- 5 · the circle --- */
+    sigilRadius: 2.6,
+    sigilIntensity: 0.55,
+    sigilSpin: 0.25,
+
+    /* --- palette --- */
+    colorCore: '#ffffff',
+    colorBeam: '#7fe6ff',
+    colorSheath: '#3d7dff',
+    colorGlow: '#5a34ff',
+    colorRibbonA: '#c46bff',
+    colorRibbonB: '#5fd0ff',
+    colorRibbonC: '#ff74d4',
+    colorSparkA: '#ff9a4a',
+    colorSparkB: '#ff6fd0',
+    colorSparkC: '#7fd8ff',
+    colorSigil: '#8fd4ff',
+    colorSigilGold: '#e8c27a',
+
+    /* --- light --- */
+    lightIntensity: 7.0,
+    lightRadius: 12.0,
+    lightColor: '#8fc8ff'
+  },
+
   /* ------------------------------------------------------------------ */
   /* Camera rig                                                          */
   /* ------------------------------------------------------------------ */
@@ -1637,7 +1921,9 @@ export const ELEMENTS = [
   'gyro',
   'amethyst',
   'tome',
-  'reliquary'
+  'reliquary',
+  'lance',
+  'wolf'
 ];
 
 /**
@@ -1699,6 +1985,23 @@ export const ELEMENT_META = {
     key: "'",
     hint: 'Wildroot Reliquary — roots arch over the target, hang it in a ring of runestones and drag it into the earth',
     cast: CastShape.ZONE,
+    snap: true
+  },
+  lance: {
+    label: 'Starbreaker Lance',
+    accent: '#7fe6ff',
+    key: 'Y',
+    hint: 'Starbreaker Lance — a beam from your hands into one target, blasting it away and burning it to light',
+    cast: CastShape.ZONE,
+    snap: true
+  },
+  wolf: {
+    label: 'Astral Fang',
+    accent: '#5fe8ff',
+    key: 'B',
+    hint: 'Astral Fang — a wolf of starlight leaps out of a rift, takes the target and carries it into another',
+    cast: CastShape.ZONE,
+    // The circle locks onto the body nearest the cursor: this cast takes one.
     snap: true
   }
 };

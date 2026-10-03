@@ -1452,13 +1452,21 @@ export class Dummy {
    * @param {string|null} region the limb, or null for the trunk
    * @param {Vector3|null} normal unit, pointing *out* of the portal; null to clear
    * @param {Vector3} [point] any point on the portal's plane
+   * @param {{color: string, glow: number, width: number}} [look] the burning
+   *   rim's own look — a portal that is not the chains' is not the chains'
+   *   colour. Left as the tear has it when omitted.
    */
-  clip(region, normal, point = null) {
+  clip(region, normal, point = null, look = null) {
     for (const part of this.parts) {
       if (part.region !== region) continue;
       const u = part.uniforms.uClip.value;
       if (!normal) u.set(0, 0, 0, 0);
       else u.set(normal.x, normal.y, normal.z, point ? normal.dot(point) : 0);
+      if (look) {
+        part.uniforms.uClipColor.value.copy(getColor(look.color));
+        part.uniforms.uClipGlow.value = look.glow;
+        part.uniforms.uClipWidth.value = look.width;
+      }
       if (normal) this._shaped(part, true);
     }
   }

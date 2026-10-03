@@ -35,12 +35,14 @@ export class Editor {
     this._buildAim();
     this._buildZone();
     this._buildShark();
+    this._buildWolf();
     this._buildChains();
     this._buildDragon();
     this._buildGyro();
     this._buildAmethyst();
     this._buildTome();
     this._buildReliquary();
+    this._buildLance();
     this._buildEnvironment();
     this._buildHall();
     this._buildPost();
@@ -537,6 +539,155 @@ export class Editor {
     R(light, c, 'portalLightRadius', 1, 30, 0.1, 'portal radius');
 
     this.sharkFolder = folder;
+  }
+
+  /**
+   * The Astral Fang, in the order of the show: the mark, the rifts, the
+   * wolf, how it is drawn, what it does to the prey, and the hits.
+   */
+  _buildWolf() {
+    const folder = this.gui.addFolder('🐺  Astral Fang');
+    const c = settings.wolf;
+    const R = Editor.range;
+
+    const cast = folder.addFolder('The cast');
+    R(cast, c, 'range', 4, 60, 0.1, 'max range');
+    R(cast, c, 'minRange', 0, 12, 0.1, 'min range');
+    R(cast, c, 'zoneRadius', 0.3, 4, 0.05, 'target ring (m)');
+    R(cast, c, 'snapRadius', 0, 8, 0.05, 'locks onto bodies within (m)');
+    R(cast, c, 'speed', 4, 150, 0.5, 'run to the target (m/s)');
+    R(cast, c, 'showTime', 1, 12, 0.05, 'rifts stand for at least (s)');
+    R(cast, c, 'fadeTime', 0.1, 8, 0.05, 'sigils burn off over (s)');
+    R(cast, c, 'cooldown', 0, 15, 0.05, 'cooldown');
+    Editor.castAnimation(cast, c);
+
+    const timing = folder.addFolder('The timing');
+    R(timing, c, 'sigilTime', 0.05, 2, 0.01, 'rose writes itself in (s)');
+    R(timing, c, 'riftDelay', 0, 1.5, 0.01, 'near rift tears at (s)');
+    R(timing, c, 'openTime', 0.05, 2, 0.01, 'rift opens in (s)');
+    R(timing, c, 'liftDelay', 0.1, 2, 0.01, 'body thrown up at (s)');
+    R(timing, c, 'hangTime', 0.15, 1.5, 0.01, 'throw to bite (s)');
+    R(timing, c, 'farRiftLead', 0, 1.5, 0.01, 'far rift opens before the bite (s)');
+    R(timing, c, 'closeDelay', 0, 2, 0.01, 'rift shuts after (s)');
+    R(timing, c, 'closeTime', 0.05, 2, 0.01, 'implodes over (s)');
+
+    const rifts = folder.addFolder('1 · The rifts');
+    R(rifts, c, 'riftRadius', 0.5, 3, 0.01, 'radius (m)');
+    R(rifts, c, 'riftHeight', 0.5, 4, 0.01, 'height (m)');
+    R(rifts, c, 'riftSpan', 2, 12, 0.05, 'from the target (m)');
+    R(rifts, c, 'riftFacing', 0, 2, 0.01, 'turned toward the caster');
+    R(rifts, c, 'riftSwirl', 0, 6, 0.05, 'vortex turns (rad/s)');
+    R(rifts, c, 'riftRim', 0, 4, 0.01, 'rim');
+    R(rifts, c, 'filaments', 0, 3, 0.01, 'filaments');
+    R(rifts, c, 'nebula', 0, 2, 0.01, 'nebula');
+    R(rifts, c, 'riftStars', 0, 3, 0.01, 'stars inside');
+    R(rifts, c, 'runeSpin', -0.5, 0.5, 0.005, 'rune ring turns (/s)');
+    R(rifts, c, 'warp', 0, 3, 0.01, 'refraction');
+    R(rifts, c, 'riftSigilRadius', 0, 4, 0.05, 'floor sigil (m)');
+    R(rifts, c, 'riftShake', 0, 1.5, 0.01, 'shake');
+    R(rifts, c, 'riftLight', 0, 80, 0.5, 'light');
+    R(rifts, c, 'riftLightRadius', 1, 30, 0.1, 'light radius');
+    R(rifts, c, 'closeFlash', 0, 0.5, 0.005, 'flash on closing');
+
+    const mark = folder.addFolder('2 · The mark');
+    R(mark, c, 'sigilRadius', 0.5, 6, 0.05, 'rose radius (m)');
+    R(mark, c, 'sigilGlow', 0, 3, 0.01, 'rose glow');
+    R(mark, c, 'column', 0, 3, 0.01, 'column');
+    R(mark, c, 'columnRadius', 0.1, 2, 0.01, 'column radius (m)');
+    const lift = mark.addFolder('The throw');
+    R(lift, c.lift, 'impulse', 0, 10, 0.05, 'along the cast (m/s)');
+    R(lift, c.lift, 'lift', 0, 25, 0.1, 'up (m/s)');
+    R(lift, c.lift, 'spin', 0, 5, 0.05, 'tumble');
+    R(lift, c, 'hangGrip', 0, 0.5, 0.005, 'steered onto the jaw');
+    R(mark, c, 'liftShake', 0, 1.5, 0.01, 'shake');
+
+    const wolf = folder.addFolder('3 · The wolf');
+    R(wolf, c, 'length', 1, 8, 0.05, 'length (m)');
+    R(wolf, c, 'biteHeight', 0.8, 5, 0.05, 'bites at (m)');
+    R(wolf, c, 'runSpeed', 2, 25, 0.1, 'runs at (m/s)');
+    R(wolf, c, 'stride', 0.5, 8, 0.05, 'stride (m)');
+    R(wolf, c, 'gaitBlend', 0.01, 0.4, 0.005, 'gallop ↔ pounce blend (s)');
+    R(wolf, c, 'footHeight', -0.5, 0.5, 0.005, 'ride height (m)');
+    R(wolf, c, 'leapTime', 0.25, 1.5, 0.01, 'leap lasts (s)');
+    R(wolf, c, 'biteAt', 0.15, 0.6, 0.01, 'bites this far through the leap');
+    R(wolf, c, 'arcPitch', 0, 1, 0.01, 'pitches along the leap');
+    R(wolf, c, 'minArc', 0, 30, 0.1, 'least leap (m/s²)');
+    R(wolf, c, 'runUp', 0.5, 8, 0.05, 'starts inside the rift (m)');
+    R(wolf, c, 'runOut', 0.5, 8, 0.05, 'carries on into the far one (m)');
+    R(wolf, c, 'socketDepth', 0, 1, 0.01, 'held how far back in the mouth');
+    R(wolf, c, 'biteSnap', 0.01, 0.5, 0.005, 'jaw takes hold in (s)');
+    R(wolf, c, 'thrashRoll', 0, 60, 1, 'twists with the shake (deg)');
+    R(wolf, c, 'thrashRate', 0.5, 6, 0.05, 'twists / s');
+    R(wolf, c, 'thrashTime', 0.1, 2, 0.01, 'twist dies in (s)');
+    R(wolf, c, 'echoes', 0, 4, 1, 'afterimages');
+    R(wolf, c, 'echoLag', 0.01, 0.2, 0.005, 'afterimage lag (s)');
+    R(wolf, c, 'echoOpacity', 0, 1, 0.01, 'afterimage opacity');
+    R(wolf, c, 'flareGlow', 0, 3, 0.01, 'flare coming through / biting');
+
+    const look = folder.addFolder('4 · The hologram');
+    R(look, c, 'rim', 0, 4, 0.01, 'rim');
+    R(look, c, 'rimPower', 0.5, 8, 0.05, 'rim tightness');
+    R(look, c, 'wire', 0, 3, 0.01, 'lattice');
+    R(look, c, 'wireWidth', 0.2, 4, 0.05, 'lattice width (px)');
+    R(look, c, 'flow', 0, 3, 0.01, 'flowing light');
+    R(look, c, 'flowSpeed', -5, 5, 0.05, 'flow speed');
+    R(look, c, 'flowBands', 0.5, 12, 0.1, 'flow bands');
+    R(look, c, 'innerStars', 0, 3, 0.01, 'stars inside it');
+    R(look, c, 'furDetail', 0, 2, 0.01, 'its pelt showing through');
+    R(look, c, 'fill', 0, 2, 0.01, 'body fill');
+    R(look, c, 'scanlines', 0, 1, 0.01, 'scanlines');
+    R(look, c, 'seam', 0, 6, 0.05, 'seam where a rift cuts it');
+    R(look, c, 'seamWidth', 0.01, 0.6, 0.005, 'seam width (m)');
+    R(look, c, 'halo', 0, 3, 0.01, 'halo');
+    R(look, c, 'haloWidth', 0, 0.3, 0.005, 'halo width (m)');
+    R(look, c, 'haloPower', 0.3, 6, 0.05, 'halo falloff');
+
+    const prey = folder.addFolder('5 · The prey');
+    prey.add(c, 'grabJoint', ['Spine', 'Hips', 'Neck', 'Head']).name('held by');
+    R(prey, c, 'carryDrop', 0, 2, 0.01, 'hips carried under the jaw (m)');
+    R(prey, c, 'carryGrip', 0, 0.6, 0.005, 'how hard they are carried');
+    R(prey, c, 'stainTime', 0.05, 3, 0.01, 'starlight covers it in (s)');
+    R(prey, c, 'preyRim', 0, 6, 0.05, 'rim');
+    R(prey, c, 'preyEdge', 0, 6, 0.05, 'burn edge');
+    R(prey, c, 'preySeam', 0, 6, 0.05, 'seam through the rift');
+    R(prey, c, 'consumeDepth', 0.1, 4, 0.05, 'gone after (m) through');
+
+    const hits = folder.addFolder('6 · The hits');
+    R(hits, c, 'crossSparks', 0, 400, 1, 'sparks through a rift');
+    R(hits, c, 'trailRate', 0, 500, 1, 'star dust / s');
+    R(hits, c, 'footDust', 0, 4, 0.05, 'dust off each paw');
+    R(hits, c, 'landShake', 0, 1.5, 0.01, 'landing shake');
+    R(hits, c, 'eyeTrail', 0, 200, 1, 'eye trails / s');
+    R(hits, c, 'biteSparks', 0, 500, 1, 'bite sparks');
+    R(hits, c, 'biteShake', 0, 1.5, 0.01, 'bite shake');
+    R(hits, c, 'biteLight', 0, 150, 0.5, 'bite light');
+    R(hits, c, 'biteFlash', 0, 0.5, 0.005, 'bite flash');
+
+    const palette = folder.addFolder('The palette');
+    for (const [key, name] of [
+      ['colorDeep', 'body'],
+      ['colorCore', 'pelt light'],
+      ['colorRim', 'rim'],
+      ['colorWire', 'lattice'],
+      ['colorStar', 'stars'],
+      ['colorHot', 'hot white'],
+      ['colorVoid', 'rift, void'],
+      ['colorNebula', 'rift, nebula'],
+      ['colorNebulaHot', 'rift, nebula hot'],
+      ['colorGold', 'sigils'],
+      ['colorPrey', 'the prey, taken'],
+      ['colorReticle', 'reticle'],
+      ['colorLocked', 'reticle, locked']
+    ]) {
+      palette.addColor(c, key).name(name);
+    }
+
+    const light = folder.addFolder('The light');
+    R(light, c, 'lightIntensity', 0, 60, 0.5, 'intensity');
+    R(light, c, 'lightRadius', 1, 30, 0.1, 'radius');
+    light.addColor(c, 'lightColor').name('colour');
+
+    this.wolfFolder = folder;
   }
 
   _buildChains() {
@@ -1386,6 +1537,126 @@ export class Editor {
     light.addColor(c, 'lightColor').name('colour');
 
     this.reliquaryFolder = folder;
+  }
+
+  /**
+   * The Starbreaker Lance, from the charge to the collapse.
+   */
+  _buildLance() {
+    const folder = this.gui.addFolder('✦  Starbreaker Lance');
+    const c = settings.lance;
+    const R = Editor.range;
+
+    const cast = folder.addFolder('The cast');
+    R(cast, c, 'range', 4, 60, 0.1, 'max range');
+    R(cast, c, 'minRange', 0, 12, 0.1, 'min range');
+    R(cast, c, 'zoneRadius', 0.5, 6, 0.05, 'circle radius (m)');
+    R(cast, c, 'snapRadius', 0.5, 6, 0.05, 'snap radius (m)');
+    R(cast, c, 'speed', 10, 300, 1, 'beam speed (m/s)');
+    R(cast, c, 'cooldown', 0, 20, 0.05, 'cooldown');
+    Editor.castAnimation(cast, c);
+
+    const timing = folder.addFolder('The timing');
+    R(timing, c, 'chargeTime', 0, 2, 0.01, 'charge (s)');
+    R(timing, c, 'beamTime', 0.1, 4, 0.01, 'beam holds (s)');
+    R(timing, c, 'collapseTime', 0.05, 2, 0.01, 'collapse (s)');
+    R(timing, c, 'fadeTime', 0.05, 4, 0.01, 'fade (s)');
+
+    const hands = folder.addFolder('1 · The hands');
+    R(hands, c, 'handHeight', 0.3, 2.5, 0.01, 'height (m)');
+    R(hands, c, 'handForward', 0, 2, 0.01, 'forward (m)');
+    R(hands, c, 'handFollow', 0, 1, 0.01, 'follow real hands');
+    R(hands, c, 'muzzle', 0, 1.5, 0.01, 'muzzle (m)');
+    R(hands, c, 'handSize', 0, 4, 0.01, 'star size (m)');
+    R(hands, c, 'handIntensity', 0, 6, 0.01, 'star intensity');
+    R(hands, c, 'handLight', 0, 80, 0.5, 'light');
+    R(hands, c, 'gatherRate', 0, 600, 1, 'motes drawn in /s');
+    R(hands, c, 'handSigilSize', 0, 3, 0.01, 'circle size (m)');
+    R(hands, c, 'handSigilOffset', -1, 2, 0.01, 'circle offset (m)');
+    R(hands, c, 'handSigilIntensity', 0, 5, 0.01, 'circle intensity');
+
+    const beam = folder.addFolder('2 · The beam');
+    R(beam, c, 'coreRadius', 0.01, 1, 0.005, 'core radius (m)');
+    R(beam, c, 'beamRadius', 0.05, 2, 0.005, 'sheath radius (m)');
+    R(beam, c, 'glowRadius', 0.1, 4, 0.01, 'glow radius (m)');
+    R(beam, c, 'coreIntensity', 0, 10, 0.05, 'core intensity');
+    R(beam, c, 'beamIntensity', 0, 8, 0.05, 'sheath intensity');
+    R(beam, c, 'glowIntensity', 0, 4, 0.01, 'glow intensity');
+    R(beam, c, 'startTaper', 0, 1, 0.01, 'width at hands');
+    R(beam, c, 'taperLength', 0.05, 8, 0.05, 'opens over (m)');
+    R(beam, c, 'impactBulge', 0, 4, 0.01, 'swell into mark');
+    R(beam, c, 'wobble', 0, 0.4, 0.005, 'boil');
+    R(beam, c, 'streakFrequency', 0, 3, 0.01, 'striations /m');
+    R(beam, c, 'streakSpeed', 0, 120, 0.5, 'striation speed');
+    R(beam, c, 'pulse', 0, 0.5, 0.005, 'pulse');
+    R(beam, c, 'pulseSpeed', 0, 60, 0.5, 'pulse speed');
+    R(beam, c, 'aimHeight', 0.2, 2, 0.01, 'aim height (m)');
+    R(beam, c, 'trailRate', 0, 600, 1, 'motes /s');
+    R(beam, c, 'arcRate', 0, 80, 0.5, 'arcs /s');
+    R(beam, c, 'arcIntensity', 0, 8, 0.05, 'arc intensity');
+
+    const ribbons = folder.addFolder('3 · The streamers');
+    R(ribbons, c, 'ribbons', 0, 12, 1, 'count');
+    R(ribbons, c, 'ribbonRadius', 0, 2, 0.01, 'radius (m)');
+    R(ribbons, c, 'ribbonRadiusVariance', 0, 1, 0.01, 'radius variance');
+    R(ribbons, c, 'ribbonTwist', -2, 2, 0.01, 'twist (turns/m)');
+    R(ribbons, c, 'ribbonSpin', -30, 30, 0.1, 'spin (rad/s)');
+    R(ribbons, c, 'ribbonWidth', 0.005, 0.5, 0.005, 'width (m)');
+    R(ribbons, c, 'ribbonFlare', 0, 8, 0.05, 'swirl round caster');
+    R(ribbons, c, 'ribbonFlareLength', 0.1, 15, 0.1, 'closes in over (m)');
+    R(ribbons, c, 'ribbonBehind', 0, 6, 0.05, 'reach behind (m)');
+    R(ribbons, c, 'ribbonBulge', 0, 5, 0.05, 'open into blast');
+    R(ribbons, c, 'ribbonIntensity', 0, 6, 0.05, 'intensity');
+
+    const blast = folder.addFolder('4 · The blast');
+    R(blast, c, 'novaSize', 0, 10, 0.05, 'star size (m)');
+    R(blast, c, 'novaIntensity', 0, 8, 0.05, 'star intensity');
+    R(blast, c, 'burstSize', 0, 10, 0.05, 'burst size (m)');
+    R(blast, c, 'impactSparks', 0, 1500, 5, 'sparks');
+    R(blast, c, 'impactEmbers', 0, 800, 5, 'embers');
+    R(blast, c, 'sprayRate', 0, 2000, 5, 'spray /s');
+    R(blast, c, 'emberRate', 0, 800, 5, 'embers /s');
+    R(blast, c, 'impactShake', 0, 2, 0.01, 'shake');
+    R(blast, c, 'impactFlash', 0, 0.6, 0.005, 'flash');
+    R(blast, c, 'impactLight', 0, 300, 1, 'light');
+    R(blast, c, 'fireShake', 0, 1, 0.005, 'shake on fire');
+    R(blast, c, 'fireLight', 0, 120, 0.5, 'light on fire');
+    R(blast, c, 'beamRumble', 0, 0.5, 0.005, 'rumble while held');
+    R(blast, c.hit, 'impulse', 0, 25, 0.1, 'blow (m/s)');
+    R(blast, c.hit, 'lift', 0, 12, 0.1, 'blow lift (m/s)');
+    R(blast, c.hit, 'spin', 0, 6, 0.05, 'blow spin');
+    R(blast, c, 'push', 0, 40, 0.1, 'beam drive (m/s²)');
+    R(blast, c, 'pushLift', 0, 20, 0.1, 'beam lift (m/s²)');
+    blast.add(c, 'disintegrate').name('burns the body away');
+    R(blast, c, 'burnStart', 0, 1, 0.01, 'burn starts at');
+    blast.addColor(c.burn, 'rimColor').name('burn rim');
+    blast.addColor(c.burn, 'edgeColor').name('burn edge');
+
+    const sigil = folder.addFolder('5 · The circle');
+    R(sigil, c, 'sigilRadius', 0.5, 8, 0.05, 'radius (m)');
+    R(sigil, c, 'sigilIntensity', 0, 5, 0.01, 'intensity');
+    R(sigil, c, 'sigilSpin', -3, 3, 0.01, 'spin');
+
+    const palette = folder.addFolder('The palette');
+    palette.addColor(c, 'colorCore').name('core');
+    palette.addColor(c, 'colorBeam').name('beam');
+    palette.addColor(c, 'colorSheath').name('sheath');
+    palette.addColor(c, 'colorGlow').name('glow');
+    palette.addColor(c, 'colorRibbonA').name('streamer A');
+    palette.addColor(c, 'colorRibbonB').name('streamer B');
+    palette.addColor(c, 'colorRibbonC').name('streamer C');
+    palette.addColor(c, 'colorSparkA').name('sparks A / embers');
+    palette.addColor(c, 'colorSparkB').name('sparks B');
+    palette.addColor(c, 'colorSparkC').name('sparks C');
+    palette.addColor(c, 'colorSigil').name('circle runes');
+    palette.addColor(c, 'colorSigilGold').name('circle frame');
+
+    const light = folder.addFolder('The light');
+    R(light, c, 'lightIntensity', 0, 60, 0.5, 'intensity');
+    R(light, c, 'lightRadius', 1, 30, 0.1, 'radius');
+    light.addColor(c, 'lightColor').name('colour');
+
+    this.lanceFolder = folder;
   }
 
   /* ------------------------------------------------------------------ */

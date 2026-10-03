@@ -23,6 +23,8 @@ const FBX_SCALE = 0.01;
 /** Rigs vary; normalise to a believable human height so the world scale holds. */
 const TARGET_HEIGHT = 1.78;
 
+const _hand = new Vector3();
+
 /**
  * Loads the rigged FBX, normalises it for the scene and drives its animation.
  *
@@ -70,6 +72,8 @@ export class CharacterController {
     /** 0..1 lunge envelope, decays on its own after `castLunge()`. */
     this._lunge = 0;
     this._rightAxis = new Vector3(1, 0, 0);
+    this._leftHand = null;
+    this._rightHand = null;
   }
 
   /**
@@ -126,7 +130,13 @@ export class CharacterController {
     }
 
     const bones = new Set();
-    fbx.traverse((node) => bones.add(node.name));
+    fbx.traverse((node) => {
+      bones.add(node.name);
+      // The wrists, for a cast that leaves from the hands. Anchored on the end
+      // so `LeftHandIndex1` and the like are not taken for the hand itself.
+      if (/LeftHand$/.test(node.name)) this._leftHand = node;
+      else if (/RightHand$/.test(node.name)) this._rightHand = node;
+    });
     CAST_ANIMATIONS.forEach((name, index) => this._registerCast(name, castFiles[index], bones));
 
     return this;
@@ -376,6 +386,20 @@ export class CharacterController {
 
   get position() {
     return this.root.position;
+  }
+
+  /**
+   * Midway between the two hands, in the world, as the last frame posed them.
+   * Null if the rig has no bones by those names.
+   *
+   * @param {Vector3} out written in place
+   * @returns {Vector3|null}
+   */
+  handsPoint(out) {
+    if (!this._leftHand || !this._rightHand) return null;
+    this._leftHand.getWorldPosition(out);
+    this._rightHand.getWorldPosition(_hand);
+    return out.add(_hand).multiplyScalar(0.5);
   }
 
   dispose() {
