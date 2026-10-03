@@ -831,9 +831,9 @@ export class ReliquaryAbility extends Ability {
       colorB: getColor(c.colorVein)
     });
     this.ctx.decals.spawn(DecalType.CRACK, _p, {
-      radius: 2.0,
+      radius: 1.5,
       life: this._t.witherEnd - this._t.clenchAt + c.fadeTime + 1,
-      intensity: 1,
+      intensity: 0.45,
       colorA: getColor(c.colorVein),
       colorB: getColor(c.colorBarkDark)
     });

@@ -273,6 +273,34 @@ Nothing in it is loaded: the links are a tube swept round a stadium and drawn in
 forged iron with runes etched down their outside faces and heat run up them from the portal; the
 hooks, the portals, the seal and the blood are procedural too.
 
+**' — Wildroot Reliquary** · <sub>far cast, targeted</sub> — the circle locks onto one body, and the
+earth takes it back. A seed of light skims the floor to it and goes under; a braided sigil writes
+itself round the body both ways from the bearing of the arch, with a ring of runes, a whorl of leaves
+at its heart and two root veins torn out across the stone to where the arch is about to stand. Then
+two great roots burst out of the floor either side of it, three strands braided, and climb over it,
+crossing and twining at the apex, with vines wound round them, fiddlehead tendrils curling off them,
+leaves opening as the growth goes past and smaller roots crawling out of their feet in and out of the
+floor. A broken ring of carved slabs rises into the arch, open at the bottom, with a horseshoe of rune
+cubes inside it and a soft light standing in it. Four tendrils whip up out of the floor and **wind
+round the wrists and ankles**; the first bite takes the body off its feet, and together they hoist it
+into the ring and hold it spread there (`Ragdoll#pin`) while bark creeps over it (`Dummy#corrode`).
+The runes light one after another round the ring, the cubes close in, sap runs up every root — then
+the cubes dive into the body, the arch **clenches** like a closing hand and the roots drag it down
+through the floor (`Dummy#sink`, `Dummy#clip`) in a burst of leaves and spores. The slabs fall and
+crash down round the circle, the roots go grey and draw back into the earth, and a lit sapling comes
+up where the body stood.
+
+The slabs and cubes were cut in Blender (`models/wildroot_reliquary.glb`) — hewn ring segments with a
+recessed panel on each face and chips knocked out of the edges, their vertex colour carrying *data*
+(which faces are panel, how far round the arc, how far across) — and the woven lattice, the rune
+medallions and the patina are all cut into them in the shader. The roots are the other way round:
+nothing about them is a mesh. Each is a curve the CPU re-solves every frame — Catmull-Rom through a
+handful of control points, resampled by arc length, given a parallel-transported frame and written
+into a float texture — and every strand of every root is one instance of a grid in parameter space
+that the vertex shader winds round its curve at its own phase. That is what lets a root grow, wither
+back into the floor, and wind round a forearm the solver moved this frame: the forearm is just three
+more control points (`assets/RootGeometry.js`).
+
 ---
 
 ## One of them, up close
@@ -355,6 +383,7 @@ The binary assets are served from `public/` and loaded automatically at boot:
 | `public/models/monowheelArmyBot.glb` | The Monowheel Bot's chassis |
 | `public/models/phoenix_bird.glb` | The phoenix, skinned and flapping |
 | `public/models/shark.glb` | The great white — skinned, with the `Swim` cycle and the `Breach` performance authored in Blender for the Abyssal Maw — plus the spike of rock that kicks the target and a chip of it for debris |
+| `public/models/wildroot_reliquary.glb` | The Wildroot Reliquary's carved ring slabs and rune cubes, cut in Blender, with their carving masks in the vertex colour |
 | `public/hdri/spruit_sunrise.hdr` | HDR probe used for image-based lighting and the glass and crystal reflections |
 | `public/textures/cathedral/*.jpg` | The ambientCG Rock030 scan — the floor, and the Toxic Shield's ruptured crust |
 | `public/mediapipe/` | The hand landmarker model and its WASM, for the camera mode |
@@ -395,6 +424,7 @@ glass — it is never shown as a visible sky. The stage keeps its flat dark back
 | **Y** (or **9**) | Deploy the Sentinel Drone — a summon; press again to recall it |
 | **K** (or **0**) | Arm the Abyssal Maw — a targeted far cast: a rock kicks the body up, a shark takes it under |
 | **L** | Arm the Chains of Penance — a targeted far cast: chains out of portals all round it tear the body apart |
+| **'** | Arm the Wildroot Reliquary — a targeted far cast: roots hang the body in a ring of runestones and drag it into the earth |
 | **WASD** / **Space** | With a summon out: drive it, and hold fire |
 | **Move the mouse** | Swing the aim arrow, or move the far-cast circle |
 | **Left click** | Cast along the arrow, or drop the circle where it is |
