@@ -94,20 +94,23 @@ export class LightningBolt {
     this.position = new BufferAttribute(new Float32Array(verts * 3), 3);
     this.uv = new BufferAttribute(new Float32Array(verts * 2), 2);
     this.bright = new BufferAttribute(new Float32Array(verts), 1);
+    // The layout is fixed — the main channel, then each fork in its own slot —
+    // so one index buffer serves every shape: quads between neighbours inside a
+    // strip, and none bridging one strip to the next.
     const index = [];
-    // Every strip owns its own run of points, so one index buffer serves all
-    // shapes — a quad between point i and i+1 unless i is the end of a strip.
-    for (let i = 0; i < MAX_POINTS - 1; i++) {
-      const a = i * 2;
-      index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
-    }
+    const quads = (start, count) => {
+      for (let i = start; i < start + count - 1; i++) {
+        const a = i * 2;
+        index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      }
+    };
+    quads(0, MAIN);
+    for (let f = 0; f < MAX_FORKS; f++) quads(MAIN + f * FORK, FORK);
     this.geometry = new BufferGeometry();
     this.geometry.setAttribute('position', this.position);
     this.geometry.setAttribute('aUv', this.uv);
     this.geometry.setAttribute('aBright', this.bright);
     this.geometry.setIndex(index);
-    // Strip ends are sealed by collapsing the bridging quad to zero width:
-    // see `_build`, which writes the bridge's vertices onto the next strip.
 
     this.mesh = new Mesh(this.geometry, material);
     this.mesh.layers.set(LAYER.VFX);
@@ -196,7 +199,6 @@ export class LightningBolt {
       strip.along = at / (MAIN - 1);
     }
     main.along = 0;
-    this._used = MAIN + forks * FORK;
   }
 
   /**
@@ -259,10 +261,7 @@ export class LightningBolt {
         const k = i / (n - 1);
         // The main channel narrows toward the mark; a fork tapers to nothing.
         const taper = s === 0 ? 1 - 0.35 * k : 1 - k * 0.9;
-        // Seal the strip's ends: the first and last pair collapse onto the
-        // spine, so the bridging quads to the neighbouring strips have no area.
-        const seal = s > 0 && (i === 0 || i === n - 1) ? 0 : 1;
-        const w = width * strip.width * taper * seal;
+        const w = width * strip.width * taper;
 
         // A fork only exists once the leader has passed the point it leaves at.
         const along = s === 0 ? k : strip.along + k * 0.15;
@@ -277,23 +276,13 @@ export class LightningBolt {
           v++;
         }
       }
-      // Seal the main strip's far end too, against the first fork's bridge.
-      if (s === 0 && this.stripCount > 1) {
-        const last = (n - 1) * 2;
-        for (let side = 0; side < 2; side++) {
-          const i = last + side;
-          const p = pts[n - 1];
-          pos[i * 3 + 0] = p.x;
-          pos[i * 3 + 1] = p.y;
-          pos[i * 3 + 2] = p.z;
-        }
-      }
     }
 
     this.position.needsUpdate = true;
     this.uv.needsUpdate = true;
     this.bright.needsUpdate = true;
-    this.geometry.setDrawRange(0, Math.max(0, (this._used - 1) * 6));
+    const forks = this.stripCount - 1;
+    this.geometry.setDrawRange(0, ((MAIN - 1) + forks * (FORK - 1)) * 6);
   }
 
   dispose() {

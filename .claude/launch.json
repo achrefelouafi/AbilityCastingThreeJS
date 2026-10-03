@@ -4,16 +4,40 @@
     {
       "name": "frost-sandbox",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 5173,
       "url": "http://127.0.0.1:5173"
     },
     {
       "name": "frost-verify",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5321", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5321",
+        "--strictPort"
+      ],
       "port": 5321,
       "url": "http://127.0.0.1:5321"
+    },
+    {
+      "name": "gyro-verify",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5344",
+        "--strictPort"
+      ],
+      "port": 5344,
+      "url": "http://127.0.0.1:5344"
     }
   ]
 }

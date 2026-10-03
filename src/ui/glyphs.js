@@ -256,7 +256,26 @@ const DRAGON = WRAP(`
   <path d="M53 22C62 34 74 48 82 70" stroke-dasharray="3 4" stroke-width="3"/>
 `);
 
+/**
+ * Stormheart Gyroscope — three rings round a star, and a bolt out of it.
+ *
+ * The rings are drawn as one circle and two ellipses turned against each
+ * other, which is what says *gyroscope* at 34px; the star in the middle is
+ * the rune; and the bolt leaves it down to the right and forks, landing on
+ * the floor line — the only mark in the set with a zigzag in it.
+ */
+const GYRO = WRAP(`
+  <circle cx="44" cy="38" r="24"/>
+  <ellipse cx="44" cy="38" rx="24" ry="9" transform="rotate(-25 44 38)"/>
+  <ellipse cx="44" cy="38" rx="9" ry="24" transform="rotate(-25 44 38)"/>
+  <path d="M44 31L46 36L51 38L46 40L44 45L42 40L37 38L42 36Z"/>
+  <path d="M54 50L62 62L56 66L68 80L64 84L80 94" stroke-width="3.6"/>
+  <path d="M62 72L54 80" stroke-width="2.6"/>
+  <path d="M14 94H88" stroke-dasharray="4 5"/>
+`);
+
 export const ELEMENT_SIGILS = {
+  gyro: GYRO,
   dragon: DRAGON,
   chains: CHAINS,
   shark: SHARK,

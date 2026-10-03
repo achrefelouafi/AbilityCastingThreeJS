@@ -2294,6 +2294,136 @@ export const settings = {
   },
 
   /* ================================================================== */
+  /* GYRO — Stormheart Gyroscope                                         */
+  /* ================================================================== */
+  /**
+   * A far cast. A violet arc crawls along the floor to the circle; a sigil
+   * writes itself round it and a shaft of light falls into it; a brass
+   * gyroscope condenses out of its own rune at the top of the shaft and comes
+   * down it, rings spinning; the rune charges into a star; and then it fires
+   * lightning into everyone standing in the circle, one at a time, each bolt
+   * free to jump on to the next body near it. It ends in an overload — a ring
+   * of bolts to the edge and one into everyone left — and burns back into the
+   * rune.
+   *
+   * Times in **The timing** are seconds, each act following the last, and are
+   * re-read every frame. `size` is the gyroscope's height in metres.
+   */
+  gyro: {
+    /* --- the cast --- */
+    range: 20.0,
+    minRange: 0,
+    speed: 34.0, // the arc's run along the floor, m/s
+    cooldown: 8.0,
+    castAnim: 'cast2',
+    zoneRadius: 6.0, // the circle it claims, metres
+    fuseSparks: 160, // sparks/second off the running arc
+    fuseArcs: 18, // arcs/second licking back along it
+
+    /* --- the timing --- */
+    summonTime: 1.6, // sigil, shaft, and the gyroscope condensing
+    chargeTime: 1.1, // the rune lighting up
+    stormTime: 5.0, // the strikes
+    overloadTime: 0.9, // the discharge
+    departTime: 1.2, // burning back into the rune
+
+    /* --- 1 · the summoning --- */
+    size: 2.3, // metres tall
+    hoverHeight: 3.0, // metres, the core over the floor
+    arriveDrop: 3.2, // metres it comes down the shaft from
+    departRise: 1.2, // metres it lifts as it leaves
+    revealWidth: 0.22, // metres of violet fire on the condensing front
+    revealGlow: 9.0,
+    revealColor: '#c58bff',
+    columnRadius: 1.5,
+    columnIntensity: 1.1,
+    moteRate: 220, // motes/second spiralling in
+    moteSize: 0.09,
+    moteSwirl: 3.2, // radians/second they turn as they fall in
+    formShake: 0.25,
+    formFlash: 0.06,
+
+    /* --- 2 · the construct --- */
+    spinRate: 1.0, // × the authored spin, at rest
+    spinSummon: 5.0, // ...while it condenses
+    spinStorm: 1.8, // ...in the storm
+    spinDepart: 7.0, // ...as it leaves
+    strikeKick: 2.5, // extra spin on each strike
+    yawSpeed: 0.35, // radians/second the whole thing turns
+    sway: 0.06, // radians
+    bobAmplitude: 0.12,
+    bobRate: 0.35,
+    rimColor: '#9a6bff',
+    rimStrength: 0.45,
+    rimPower: 2.6,
+    gemGlow: 3.0, // how hard the amethyst lights with the charge
+
+    /* --- 3 · the core --- */
+    coreSize: 2.6, // metres across, fully charged
+    coreIntensity: 1.6,
+    coreRays: 7,
+    coreFlicker: 0.35,
+    starRate: 90, // stars/second born round it
+    starSize: 0.16,
+    starReach: 1.1, // × the ring radius
+    crawlRate: 9, // arcs/second from the core out to the rings
+    chargeRumble: 0.05,
+
+    /* --- 4 · the sigil --- */
+    sigilIntensity: 1.1,
+    sigilSpin: 0.35,
+    sigilFill: 0.14,
+
+    /* --- 5 · the strikes --- */
+    strikeInterval: 0.45, // seconds between strikes
+    chainJumps: 1, // bodies a bolt jumps on to after the first
+    chainRange: 4.5, // metres a jump reaches
+    chainDelay: 0.12, // seconds between links
+    idleStrikeRate: 2.4, // floor strikes/second with nobody left to hit
+    aimHeight: 0.6, // × body height
+    boltWidth: 0.14, // metres, half-width of the ribbon
+    boltCore: 0.16, // the white spine, × the width
+    boltJag: 0.2,
+    boltArch: 0.12,
+    boltForks: 3,
+    boltLife: 0.38,
+    boltLeader: 0.045, // seconds the leader takes to reach the mark
+    boltRestrikes: 3,
+    boltIntensity: 2.6,
+    impactSparks: 46,
+    strikeShake: 0.22,
+    strikeFlash: 0.05,
+    strikeLight: 60.0,
+    strikeLightRadius: 9.0,
+    hit: {
+      impulse: 8.5,
+      lift: 4.0,
+      spin: 1.6
+    },
+
+    /* --- 6 · the overload --- */
+    novaBolts: 10,
+    novaShake: 0.6,
+    novaFlash: 0.16,
+    novaLight: 120.0,
+
+    /* --- palette --- */
+    colorCore: '#ffffff',
+    colorBolt: '#dccbff',
+    colorGlow: '#7b3dff',
+    colorArc: '#62d6ff',
+    colorStar: '#efe4ff',
+    colorSigil: '#9b6bff',
+    colorSigilGold: '#ffcf7a',
+
+    /* --- light --- */
+    lightIntensity: 16.0, // at the core
+    lightRadius: 12.0,
+    lightColor: '#a77bff',
+    lightGutter: 0.35
+  },
+
+  /* ================================================================== */
   /* SHARD — Corrupted Shard Spawn                                       */
   /* ================================================================== */
   /**
@@ -3180,7 +3310,8 @@ export const ELEMENTS = [
   'shark',
   // Past the digits: a letter only.
   'chains',
-  'dragon'
+  'dragon',
+  'gyro'
 ];
 
 /**
@@ -3275,6 +3406,13 @@ export const ELEMENT_META = {
     accent: '#ff5a1f',
     key: 'I',
     hint: 'Dragonfire Circle — a dragon draws a ring of fire, and the fire takes everything inside it',
+    cast: CastShape.ZONE
+  },
+  gyro: {
+    label: 'Stormheart Gyroscope',
+    accent: '#a77bff',
+    key: 'O',
+    hint: 'Stormheart Gyroscope — a gyroscope condenses over the circle and strikes everyone in it with lightning',
     cast: CastShape.ZONE
   }
 };

@@ -489,6 +489,3 @@ export function patchGyroscopeBody(material) {
 
   return material;
 }
-
-/** The axis the column's cylinder is built along. */
-export const GYRO_UP = new Vector3(0, 1, 0);

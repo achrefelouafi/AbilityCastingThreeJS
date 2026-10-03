@@ -44,6 +44,7 @@ export class Editor {
     this._buildShark();
     this._buildChains();
     this._buildDragon();
+    this._buildGyro();
     this._buildMonowheel();
     this._buildDrone();
     this._buildEnvironment();
@@ -1973,6 +1974,127 @@ export class Editor {
     R(light, c, 'fieldLightRadius', 1, 40, 0.1, 'field light radius');
 
     this.dragonFolder = folder;
+  }
+
+  /**
+   * The Stormheart Gyroscope, in the order of the show.
+   */
+  _buildGyro() {
+    const folder = this.gui.addFolder('⚛  Stormheart Gyroscope');
+    const c = settings.gyro;
+    const R = Editor.range;
+
+    const cast = folder.addFolder('The cast');
+    R(cast, c, 'range', 4, 60, 0.1, 'max range');
+    R(cast, c, 'minRange', 0, 12, 0.1, 'min range');
+    R(cast, c, 'zoneRadius', 2, 14, 0.1, 'circle radius (m)');
+    R(cast, c, 'speed', 4, 120, 0.5, 'arc speed (m/s)');
+    R(cast, c, 'fuseSparks', 0, 600, 1, 'arc sparks/s');
+    R(cast, c, 'fuseArcs', 0, 60, 1, 'arc licks/s');
+    R(cast, c, 'cooldown', 0, 20, 0.05, 'cooldown');
+    Editor.castAnimation(cast, c);
+
+    const timing = folder.addFolder('The timing');
+    R(timing, c, 'summonTime', 0.2, 5, 0.01, 'summoning (s)');
+    R(timing, c, 'chargeTime', 0.1, 5, 0.01, 'charge (s)');
+    R(timing, c, 'stormTime', 0.2, 15, 0.05, 'storm (s)');
+    R(timing, c, 'overloadTime', 0.2, 3, 0.01, 'overload (s)');
+    R(timing, c, 'departTime', 0.2, 4, 0.01, 'leaving (s)');
+
+    const summon = folder.addFolder('1 · The summoning');
+    R(summon, c, 'size', 0.5, 6, 0.05, 'height (m)');
+    R(summon, c, 'hoverHeight', 1, 8, 0.05, 'core height (m)');
+    R(summon, c, 'arriveDrop', 0, 10, 0.05, 'comes down from (m)');
+    R(summon, c, 'departRise', 0, 6, 0.05, 'lifts as it leaves (m)');
+    R(summon, c, 'revealWidth', 0.01, 1, 0.01, 'condensing edge (m)');
+    R(summon, c, 'revealGlow', 0, 30, 0.1, 'condensing edge glow');
+    summon.addColor(c, 'revealColor').name('condensing edge colour');
+    R(summon, c, 'columnRadius', 0.2, 5, 0.05, 'shaft radius (m)');
+    R(summon, c, 'columnIntensity', 0, 4, 0.01, 'shaft');
+    R(summon, c, 'moteRate', 0, 800, 1, 'motes/s');
+    R(summon, c, 'moteSize', 0.01, 0.4, 0.005, 'mote size');
+    R(summon, c, 'moteSwirl', -10, 10, 0.05, 'mote swirl (rad/s)');
+    R(summon, c, 'formShake', 0, 1.5, 0.005, 'shake when whole');
+    R(summon, c, 'formFlash', 0, 0.5, 0.005, 'flash when whole');
+
+    const construct = folder.addFolder('2 · The construct');
+    R(construct, c, 'spinRate', 0, 5, 0.05, 'ring spin, at rest');
+    R(construct, c, 'spinSummon', 0, 15, 0.05, 'ring spin, condensing');
+    R(construct, c, 'spinStorm', 0, 8, 0.05, 'ring spin, storm');
+    R(construct, c, 'spinDepart', 0, 20, 0.05, 'ring spin, leaving');
+    R(construct, c, 'strikeKick', 0, 10, 0.05, 'spin kick per strike');
+    R(construct, c, 'yawSpeed', -3, 3, 0.01, 'turn (rad/s)');
+    R(construct, c, 'sway', 0, 0.5, 0.005, 'sway (rad)');
+    R(construct, c, 'bobAmplitude', 0, 1, 0.005, 'bob (m)');
+    R(construct, c, 'bobRate', 0, 2, 0.01, 'bob rate');
+    construct.addColor(c, 'rimColor').name('rim');
+    R(construct, c, 'rimStrength', 0, 3, 0.01, 'rim strength');
+    R(construct, c, 'rimPower', 0.5, 8, 0.05, 'rim tightness');
+    R(construct, c, 'gemGlow', 0, 12, 0.05, 'rune glow with charge');
+
+    const core = folder.addFolder('3 · The core');
+    R(core, c, 'coreSize', 0.2, 8, 0.05, 'size (m)');
+    R(core, c, 'coreIntensity', 0, 6, 0.01, 'intensity');
+    R(core, c, 'coreRays', 1, 16, 1, 'rays');
+    R(core, c, 'coreFlicker', 0, 1, 0.01, 'gutter');
+    R(core, c, 'starRate', 0, 400, 1, 'stars/s');
+    R(core, c, 'starSize', 0.01, 0.6, 0.005, 'star size');
+    R(core, c, 'starReach', 0.1, 3, 0.01, 'star reach (× rings)');
+    R(core, c, 'crawlRate', 0, 40, 0.5, 'crawling arcs/s');
+    R(core, c, 'chargeRumble', 0, 0.4, 0.005, 'charge rumble');
+
+    const sigil = folder.addFolder('4 · The sigil');
+    R(sigil, c, 'sigilIntensity', 0, 4, 0.01, 'intensity');
+    R(sigil, c, 'sigilSpin', -2, 2, 0.01, 'spin');
+    R(sigil, c, 'sigilFill', 0, 1, 0.01, 'fill');
+
+    const strikes = folder.addFolder('5 · The strikes');
+    R(strikes, c, 'strikeInterval', 0.05, 2, 0.01, 'between strikes (s)');
+    R(strikes, c, 'chainJumps', 0, 4, 1, 'chain jumps');
+    R(strikes, c, 'chainRange', 0.5, 12, 0.1, 'chain reach (m)');
+    R(strikes, c, 'chainDelay', 0, 0.6, 0.005, 'between links (s)');
+    R(strikes, c, 'idleStrikeRate', 0, 10, 0.1, 'floor strikes/s, nobody left');
+    R(strikes, c, 'aimHeight', 0, 1, 0.01, 'aim height (× body)');
+    R(strikes, c, 'boltWidth', 0.01, 0.6, 0.005, 'bolt width (m)');
+    R(strikes, c, 'boltCore', 0.02, 1, 0.01, 'white spine');
+    R(strikes, c, 'boltJag', 0, 0.6, 0.005, 'jaggedness');
+    R(strikes, c, 'boltArch', -0.5, 0.5, 0.005, 'arch');
+    R(strikes, c, 'boltForks', 0, 4, 1, 'forks');
+    R(strikes, c, 'boltLife', 0.05, 1.5, 0.01, 'life (s)');
+    R(strikes, c, 'boltLeader', 0.005, 0.4, 0.005, 'leader (s)');
+    R(strikes, c, 'boltRestrikes', 0, 8, 1, 're-strikes');
+    R(strikes, c, 'boltIntensity', 0, 8, 0.05, 'intensity');
+    R(strikes, c, 'impactSparks', 0, 200, 1, 'sparks per hit');
+    R(strikes, c, 'strikeShake', 0, 1.5, 0.005, 'shake');
+    R(strikes, c, 'strikeFlash', 0, 0.5, 0.005, 'flash');
+    R(strikes, c, 'strikeLight', 0, 200, 0.5, 'light');
+    R(strikes, c, 'strikeLightRadius', 1, 30, 0.1, 'light radius');
+    R(strikes, c.hit, 'impulse', 0, 20, 0.1, 'knock back (m/s)');
+    R(strikes, c.hit, 'lift', 0, 12, 0.1, 'lift (m/s)');
+    R(strikes, c.hit, 'spin', 0, 6, 0.05, 'spin');
+
+    const overload = folder.addFolder('6 · The overload');
+    R(overload, c, 'novaBolts', 0, 24, 1, 'bolts to the edge');
+    R(overload, c, 'novaShake', 0, 2, 0.01, 'shake');
+    R(overload, c, 'novaFlash', 0, 0.6, 0.005, 'flash');
+    R(overload, c, 'novaLight', 0, 300, 1, 'light');
+
+    const palette = folder.addFolder('The palette');
+    palette.addColor(c, 'colorCore').name('white core');
+    palette.addColor(c, 'colorBolt').name('bolt');
+    palette.addColor(c, 'colorGlow').name('glow');
+    palette.addColor(c, 'colorArc').name('arc');
+    palette.addColor(c, 'colorStar').name('stars');
+    palette.addColor(c, 'colorSigil').name('sigil');
+    palette.addColor(c, 'colorSigilGold').name('sigil gold');
+
+    const light = folder.addFolder('The light');
+    R(light, c, 'lightIntensity', 0, 120, 0.5, 'at the core');
+    R(light, c, 'lightRadius', 1, 40, 0.1, 'core light radius');
+    light.addColor(c, 'lightColor').name('core light colour');
+    R(light, c, 'lightGutter', 0, 1, 0.01, 'gutter');
+
+    this.gyroFolder = folder;
   }
 
   _buildMonowheel() {
