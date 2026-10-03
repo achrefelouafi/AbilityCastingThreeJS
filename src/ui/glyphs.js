@@ -274,7 +274,48 @@ const GYRO = WRAP(`
   <path d="M14 94H88" stroke-dasharray="4 5"/>
 `);
 
+/**
+ * Amethyst Verdict — a circle with a socket at every point of it, and the
+ * crystal in the middle they all come for.
+ *
+ * The six small circles on the rim are the whole idea, so they are drawn at
+ * full weight; the crystal is a faceted point, a centre line for the ridge;
+ * and two chevrons either side say *inward*.
+ */
+const AMETHYST = WRAP(`
+  <circle cx="50" cy="52" r="36" stroke-width="2.6"/>
+  <circle cx="50.0" cy="16.0" r="7"/>
+  <circle cx="81.2" cy="34.0" r="7"/>
+  <circle cx="81.2" cy="70.0" r="7"/>
+  <circle cx="50.0" cy="88.0" r="7"/>
+  <circle cx="18.8" cy="70.0" r="7"/>
+  <circle cx="18.8" cy="34.0" r="7"/>
+  <path d="M50 34L58 46L55 66L50 72L45 66L42 46Z"/>
+  <path d="M50 34V72" stroke-width="2.4"/>
+  <path d="M26 46L33 52L26 58M74 46L67 52L74 58" stroke-width="3"/>
+`);
+
+/**
+ * Astral Tome — the book at the foot, its dial, the fan of light out of it,
+ * and the star at the top with one orbit tilted across it and a planet on it.
+ *
+ * The book is drawn as a slab with its page block, so it reads as a book and
+ * not a box; the two fan lines are what tie the sky to it.
+ */
+const TOME = WRAP(`
+  <path d="M14 70L50 60L86 70L50 82Z"/>
+  <path d="M14 70V78L50 90L86 78V70" stroke-width="3.4"/>
+  <ellipse cx="50" cy="71" rx="10" ry="3.6" stroke-width="3"/>
+  <path d="M44 68L36 34M56 68L64 34" stroke-width="2.6" stroke-dasharray="3 4"/>
+  <circle cx="50" cy="28" r="7"/>
+  <ellipse cx="50" cy="28" rx="34" ry="10" transform="rotate(-18 50 28)" stroke-width="2.8"/>
+  <circle cx="81" cy="18" r="4" fill="currentColor" stroke="none"/>
+  <path d="M22 12V18M19 15H25" stroke-width="2.6"/>
+`);
+
 export const ELEMENT_SIGILS = {
+  tome: TOME,
+  amethyst: AMETHYST,
   gyro: GYRO,
   dragon: DRAGON,
   chains: CHAINS,

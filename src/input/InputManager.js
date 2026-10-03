@@ -137,6 +137,13 @@ export class InputManager extends EventEmitter {
       case 'KeyO':
         this.emit('action', 'ability', 12);
         break;
+      case 'KeyU':
+        this.emit('action', 'ability', 13);
+        break;
+      // Every letter is spoken for — WASD drive the summons.
+      case 'Semicolon':
+        this.emit('action', 'ability', 14);
+        break;
       case 'Escape':
         this.emit('action', 'cancel');
         break;

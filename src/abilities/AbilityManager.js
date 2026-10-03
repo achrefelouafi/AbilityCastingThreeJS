@@ -11,6 +11,8 @@ import { SharkAbility } from './SharkAbility.js';
 import { ChainsAbility } from './ChainsAbility.js';
 import { DragonAbility } from './DragonAbility.js';
 import { GyroscopeAbility } from './GyroscopeAbility.js';
+import { AmethystAbility } from './AmethystAbility.js';
+import { TomeAbility } from './TomeAbility.js';
 import { ELEMENTS } from '../config/settings.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
@@ -28,7 +30,9 @@ const ABILITY_TYPES = {
   shark: SharkAbility,
   chains: ChainsAbility,
   dragon: DragonAbility,
-  gyro: GyroscopeAbility
+  gyro: GyroscopeAbility,
+  amethyst: AmethystAbility,
+  tome: TomeAbility
 };
 
 const MAX_CONCURRENT = 4;

@@ -1272,6 +1272,15 @@ export class Dummy {
     return held;
   }
 
+  /**
+   * Add a velocity to the whole body, evenly — a blow that lands on a body
+   * already down. `kill` throws a standing body once; this is for whatever
+   * keeps hitting it after. Does nothing while it is still on its feet.
+   */
+  shove(x, y, z) {
+    for (const part of this.parts) part.ragdoll?.shove(x, y, z);
+  }
+
   /** Let go of one joint, or of all of them. The body falls on from wherever it is. */
   unpin(joint = null) {
     for (const part of this.parts) part.ragdoll?.unpin(joint);

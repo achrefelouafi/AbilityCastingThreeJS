@@ -45,6 +45,8 @@ export class Editor {
     this._buildChains();
     this._buildDragon();
     this._buildGyro();
+    this._buildAmethyst();
+    this._buildTome();
     this._buildMonowheel();
     this._buildDrone();
     this._buildEnvironment();
@@ -2095,6 +2097,225 @@ export class Editor {
     R(light, c, 'lightGutter', 0, 1, 0.01, 'gutter');
 
     this.gyroFolder = folder;
+  }
+
+  /**
+   * The Amethyst Verdict, in the order of the rite.
+   */
+  _buildAmethyst() {
+    const folder = this.gui.addFolder('◆  Amethyst Verdict');
+    const c = settings.amethyst;
+    const R = Editor.range;
+
+    const cast = folder.addFolder('The cast');
+    R(cast, c, 'range', 4, 60, 0.1, 'max range');
+    R(cast, c, 'minRange', 0, 12, 0.1, 'min range');
+    R(cast, c, 'zoneRadius', 1.5, 8, 0.05, 'circle radius (m)');
+    R(cast, c, 'snapRadius', 0.5, 6, 0.05, 'snap radius (m)');
+    R(cast, c, 'speed', 4, 120, 0.5, 'speed (m/s)');
+    R(cast, c, 'cooldown', 0, 20, 0.05, 'cooldown');
+    R(cast, c, 'fadeTime', 0.1, 5, 0.05, 'fade (s)');
+    Editor.castAnimation(cast, c);
+
+    const timing = folder.addFolder('The timing');
+    R(timing, c, 'drawTime', 0.05, 2, 0.01, 'circle draws (s)');
+    R(timing, c, 'socketStagger', 0, 0.4, 0.005, 'between sockets (s)');
+    R(timing, c, 'socketOpen', 0.05, 1.5, 0.01, 'socket opens (s)');
+    R(timing, c, 'riseTime', 0.1, 2, 0.01, 'stone rises (s)');
+    R(timing, c, 'riseStagger', 0, 0.5, 0.005, 'between stones (s)');
+    R(timing, c, 'hoverTime', 0, 3, 0.01, 'hangs (s)');
+    R(timing, c, 'aimTime', 0.05, 2, 0.01, 'turns to aim (s)');
+    R(timing, c, 'launchStagger', 0, 0.5, 0.005, 'between throws (s)');
+    R(timing, c, 'flightTime', 0.05, 1, 0.005, 'flight (s)');
+    R(timing, c, 'finaleDelay', 0, 1, 0.01, 'finale after last (s)');
+    R(timing, c, 'afterTime', 0.1, 4, 0.05, 'holds after (s)');
+
+    const circle = folder.addFolder('1 · The circle');
+    R(circle, c, 'stones', 3, 8, 1, 'sockets / stones');
+    R(circle, c, 'socketRadius', 0.2, 1.5, 0.01, 'socket radius (m)');
+    R(circle, c, 'circleIntensity', 0, 4, 0.01, 'intensity');
+    R(circle, c, 'circleSpin', -3, 3, 0.01, 'spin');
+
+    const stones = folder.addFolder('2 · The stones');
+    R(stones, c, 'stoneSize', 0.3, 4, 0.01, 'height (m)');
+    R(stones, c, 'stoneSizeVariance', 0, 0.6, 0.01, 'size variance');
+    R(stones, c, 'hoverHeight', 0.5, 6, 0.05, 'hang height (m)');
+    R(stones, c, 'hoverVariance', 0, 2, 0.01, 'hang variance (m)');
+    R(stones, c, 'hoverBob', 0, 0.5, 0.005, 'bob (m)');
+    R(stones, c, 'hoverSpin', -6, 6, 0.05, 'turn (rad/s)');
+    R(stones, c, 'riseOvershoot', 0, 1.5, 0.01, 'rise overshoot (m)');
+    R(stones, c, 'windup', 0, 2, 0.01, 'draw back (m)');
+    R(stones, c, 'tremble', 0, 0.15, 0.001, 'tremble (m)');
+    R(stones, c, 'flightSpin', -40, 40, 0.5, 'drill (rad/s)');
+    R(stones, c, 'stopShort', 0, 1, 0.01, 'breaks short of (m)');
+    R(stones, c, 'aimHeight', 0.2, 2, 0.01, 'aim height (m)');
+
+    const crystal = folder.addFolder('3 · The crystal');
+    R(crystal, c, 'stoneCloud', 0, 2, 0.01, 'cloud');
+    R(crystal, c, 'stoneVeins', 0, 4, 0.01, 'veins');
+    R(crystal, c, 'stoneInner', 0, 3, 0.01, 'inner light');
+    R(crystal, c, 'stoneRim', 0, 3, 0.01, 'rim');
+    R(crystal, c, 'stoneEnv', 0, 4, 0.01, 'reflections');
+    R(crystal, c, 'chargeGlow', 0, 3, 0.01, 'charge glow');
+
+    const smash = folder.addFolder('4 · The shattering');
+    R(smash, c, 'shards', 0, 30, 1, 'pieces per stone');
+    R(smash, c, 'shardSize', 0.02, 0.8, 0.005, 'piece size (m)');
+    R(smash, c, 'shardSpeed', 0, 20, 0.1, 'piece speed (m/s)');
+    R(smash, c, 'shardLife', 0.2, 8, 0.05, 'pieces last (s)');
+    R(smash, c, 'chipCount', 0, 200, 1, 'chips');
+    R(smash, c, 'sparkCount', 0, 200, 1, 'sparks');
+    R(smash, c, 'dustCount', 0, 40, 1, 'dust');
+    R(smash, c, 'impactShake', 0, 1.5, 0.005, 'shake');
+    R(smash, c, 'impactLight', 0, 200, 0.5, 'light');
+    R(smash, c.hit, 'impulse', 0, 20, 0.1, 'first blow (m/s)');
+    R(smash, c.hit, 'lift', 0, 12, 0.1, 'first blow lift (m/s)');
+    R(smash, c.hit, 'spin', 0, 6, 0.05, 'first blow spin');
+    R(smash, c, 'shove', 0, 15, 0.1, 'each blow after (m/s)');
+    R(smash, c, 'shoveLift', 0, 10, 0.1, 'each blow lift (m/s)');
+
+    const finale = folder.addFolder('5 · The finale');
+    R(finale, c, 'finaleLift', 0, 20, 0.1, 'throws up (m/s)');
+    R(finale, c, 'finaleShards', 0, 60, 1, 'pieces');
+    R(finale, c, 'finaleShake', 0, 2, 0.01, 'shake');
+    R(finale, c, 'finaleFlash', 0, 0.6, 0.005, 'flash');
+    R(finale, c, 'finaleLight', 0, 300, 1, 'light');
+
+    const palette = folder.addFolder('The palette');
+    palette.addColor(c, 'colorDeep').name('stone, deep');
+    palette.addColor(c, 'colorStone').name('stone');
+    palette.addColor(c, 'colorPale').name('stone, cloud');
+    palette.addColor(c, 'colorGlow').name('inner light');
+    palette.addColor(c, 'colorVein').name('veins');
+    palette.addColor(c, 'colorCircle').name('circle');
+    palette.addColor(c, 'colorSocket').name('sockets');
+    palette.addColor(c, 'colorCharge').name('charge');
+    palette.addColor(c, 'colorSpark').name('sparks');
+    palette.addColor(c, 'colorDust').name('dust');
+
+    const light = folder.addFolder('The light');
+    R(light, c, 'lightIntensity', 0, 60, 0.5, 'intensity');
+    R(light, c, 'lightRadius', 1, 30, 0.1, 'radius');
+    light.addColor(c, 'lightColor').name('colour');
+
+    this.amethystFolder = folder;
+  }
+
+  /**
+   * The Astral Tome, in the order of the show.
+   */
+  _buildTome() {
+    const folder = this.gui.addFolder('✦  Astral Tome');
+    const c = settings.tome;
+    const R = Editor.range;
+
+    const cast = folder.addFolder('The cast');
+    R(cast, c, 'range', 4, 60, 0.1, 'max range');
+    R(cast, c, 'minRange', 0, 12, 0.1, 'min range');
+    R(cast, c, 'zoneRadius', 1.5, 12, 0.05, 'circle radius (m)');
+    R(cast, c, 'cooldown', 0, 20, 0.05, 'cooldown');
+    Editor.castAnimation(cast, c);
+
+    const timing = folder.addFolder('The timing');
+    R(timing, c, 'conjureTime', 0.2, 3, 0.01, 'conjures (s)');
+    R(timing, c, 'flySpeed', 1, 40, 0.1, 'flies (m/s)');
+    R(timing, c, 'flyMin', 0.1, 3, 0.01, 'flight at least (s)');
+    R(timing, c, 'flyMax', 0.2, 5, 0.01, 'flight at most (s)');
+    R(timing, c, 'growTime', 0.1, 3, 0.01, 'grows (s)');
+    R(timing, c, 'openTime', 0.1, 3, 0.01, 'opens (s)');
+    R(timing, c, 'judgeTime', 0.2, 10, 0.05, 'judgement (s)');
+    R(timing, c, 'closeTime', 0.2, 4, 0.05, 'closes (s)');
+
+    const conjure = folder.addFolder('1 · The conjuring');
+    R(conjure, c, 'conjureSize', 0.1, 2, 0.01, 'size (m)');
+    R(conjure, c, 'conjureHeight', 0.3, 3, 0.01, 'height (m)');
+    R(conjure, c, 'conjureReach', -1, 3, 0.01, 'ahead (m)');
+    R(conjure, c, 'conjureSide', -2, 2, 0.01, 'aside (m)');
+    R(conjure, c, 'conjureMotes', 0, 600, 1, 'motes/s');
+    R(conjure, c, 'moteSize', 0.01, 0.3, 0.005, 'mote size');
+    R(conjure, c, 'moteSwirl', -8, 8, 0.05, 'mote swirl');
+    R(conjure, c, 'edgeWidth', 0.01, 0.4, 0.005, 'burn-in edge');
+    R(conjure, c, 'edgeGlow', 0, 20, 0.1, 'edge glow');
+    conjure.addColor(c, 'colorEdge').name('edge colour');
+
+    const flight = folder.addFolder('2 · The flight');
+    R(flight, c, 'flyArc', 0, 8, 0.05, 'arc (m)');
+    R(flight, c, 'flySpin', -4, 4, 0.05, 'turns');
+    R(flight, c, 'flyTilt', -1.5, 1.5, 0.01, 'bank (rad)');
+    R(flight, c, 'flyTrail', 0, 600, 1, 'trail/s');
+
+    const book = folder.addFolder('3 · The book');
+    R(book, c, 'size', 0.4, 6, 0.01, 'size (m)');
+    R(book, c, 'hoverHeight', 0.3, 5, 0.01, 'hangs at (m)');
+    R(book, c, 'hoverBob', 0, 0.5, 0.005, 'bob (m)');
+    R(book, c, 'bobRate', 0, 3, 0.01, 'bob rate');
+    R(book, c, 'yawSpeed', -3, 3, 0.01, 'turn (rad/s)');
+    R(book, c, 'glyphGlow', 0, 12, 0.05, 'glyph glow');
+    R(book, c, 'rimStrength', 0, 3, 0.01, 'rim');
+
+    const orrery = folder.addFolder('4 · The orrery');
+    R(orrery, c, 'holoHeight', 0.2, 5, 0.01, 'star height (m)');
+    R(orrery, c, 'holoRadius', 0.3, 6, 0.01, 'widest orbit (m)');
+    R(orrery, c, 'planets', 0, 6, 1, 'planets');
+    R(orrery, c, 'orbitSpeed', -4, 4, 0.01, 'orbit speed');
+    R(orrery, c, 'orbitWidth', 0.002, 0.08, 0.001, 'orbit line (m)');
+    R(orrery, c, 'orbitIntensity', 0, 5, 0.01, 'orbit intensity');
+    R(orrery, c, 'planetSize', 0.05, 2, 0.01, 'planet size');
+    R(orrery, c, 'planetIntensity', 0, 5, 0.01, 'planet intensity');
+    R(orrery, c, 'planetRegrow', 0.05, 4, 0.01, 'planet regathers (s)');
+    R(orrery, c, 'coreSize', 0.2, 5, 0.01, 'star size');
+    R(orrery, c, 'coreIntensity', 0, 5, 0.01, 'star intensity');
+    R(orrery, c, 'fanRadius', 0.1, 4, 0.01, 'fan radius (m)');
+    R(orrery, c, 'fanIntensity', 0, 5, 0.01, 'fan intensity');
+    R(orrery, c, 'fanMotes', 0, 400, 1, 'fan motes/s');
+    R(orrery, c, 'starRate', 0, 400, 1, 'stars/s');
+    R(orrery, c, 'starSize', 0.01, 0.5, 0.005, 'star mote size');
+    R(orrery, c, 'starReach', 0.2, 3, 0.01, 'star reach');
+    R(orrery, c, 'openFlash', 0, 0.5, 0.005, 'open flash');
+
+    const judge = folder.addFolder('5 · The judgement');
+    R(judge, c, 'strikeInterval', 0.05, 2, 0.01, 'between throws (s)');
+    R(judge, c, 'idleStrikeRate', 0.1, 10, 0.05, 'floor throws/s');
+    R(judge, c, 'cometFlight', 0.05, 2, 0.01, 'flight (s)');
+    R(judge, c, 'cometArc', -0.5, 1, 0.01, 'arc');
+    R(judge, c, 'cometSize', 0.05, 3, 0.01, 'light size');
+    R(judge, c, 'cometIntensity', 0, 5, 0.01, 'light intensity');
+    R(judge, c, 'trailDensity', 0, 80, 1, 'trail/m');
+    R(judge, c, 'beamWidth', 0.005, 0.4, 0.005, 'beam width');
+    R(judge, c, 'beamIntensity', 0, 8, 0.05, 'beam intensity');
+    R(judge, c, 'aimHeight', 0, 1, 0.01, 'aim height');
+    R(judge, c, 'impactSparks', 0, 200, 1, 'sparks');
+    R(judge, c, 'strikeShake', 0, 1.5, 0.005, 'shake');
+    R(judge, c, 'strikeFlash', 0, 0.5, 0.005, 'flash');
+    R(judge, c, 'strikeLight', 0, 200, 0.5, 'light');
+    R(judge, c.hit, 'impulse', 0, 20, 0.1, 'impulse');
+    R(judge, c.hit, 'lift', 0, 12, 0.1, 'lift');
+    R(judge, c.hit, 'spin', 0, 6, 0.05, 'spin');
+
+    const finale = folder.addFolder('6 · The finale');
+    R(finale, c, 'finaleShake', 0, 2, 0.01, 'shake');
+    R(finale, c, 'finaleFlash', 0, 0.6, 0.005, 'flash');
+    R(finale, c, 'finaleLight', 0, 300, 1, 'light');
+
+    const zodiac = folder.addFolder('7 · The zodiac');
+    R(zodiac, c, 'sigilIntensity', 0, 4, 0.01, 'intensity');
+    R(zodiac, c, 'sigilSpin', -3, 3, 0.01, 'spin');
+
+    const palette = folder.addFolder('The palette');
+    palette.addColor(c, 'colorCore').name('core');
+    palette.addColor(c, 'colorGlow').name('glow');
+    palette.addColor(c, 'colorLine').name('orbits, beams');
+    palette.addColor(c, 'colorSpark').name('sparks');
+    palette.addColor(c, 'colorStar').name('stars');
+    palette.addColor(c, 'colorSigil').name('zodiac');
+    palette.addColor(c, 'colorDeep').name('trail, deep');
+
+    const light = folder.addFolder('The light');
+    R(light, c, 'lightIntensity', 0, 60, 0.5, 'intensity');
+    R(light, c, 'lightRadius', 1, 30, 0.1, 'radius');
+    light.addColor(c, 'lightColor').name('colour');
+
+    this.tomeFolder = folder;
   }
 
   _buildMonowheel() {

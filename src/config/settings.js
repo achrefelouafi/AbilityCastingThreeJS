@@ -2424,6 +2424,247 @@ export const settings = {
   },
 
   /* ================================================================== */
+  /* TOME — Astral Tome                                                  */
+  /* ================================================================== */
+  /**
+   * A far cast. A clasped tome materialises at the caster's shoulder, flies
+   * to the middle of the circle and swells to full size over it; a fan of
+   * light pours out of the zodiac dial on its cover, a star rises out of it,
+   * and an orrery draws itself round the star — orbits at every tilt, a
+   * planet on each. Then the planets tear free one after another and come
+   * down as lights on everyone standing in the circle, each drawing a beam
+   * behind it. The star throws a last light at whoever is left, and the
+   * orrery and the book fold away.
+   *
+   * Times in **The timing** are seconds, each act following the last, and
+   * are re-read every frame — except the flight, which is fixed at the cast
+   * from the distance and `flySpeed`. `size` is the tome's width in metres.
+   * The book was built in Blender (`public/models/arcane_tome.glb`).
+   */
+  tome: {
+    /* --- the cast --- */
+    range: 20.0,
+    minRange: 0,
+    speed: 30.0, // unused — the tome flies on its own clock; see flySpeed
+    cooldown: 8.0,
+    castAnim: 'cast1',
+    zoneRadius: 6.0, // the circle it claims, metres
+
+    /* --- the timing --- */
+    conjureTime: 0.85, // materialising at the shoulder
+    flySpeed: 11.0, // m/s along the arc to the circle...
+    flyMin: 0.6, // ...but never quicker than this, seconds
+    flyMax: 1.5, // ...nor slower
+    growTime: 0.65, // swelling to full size
+    openTime: 1.1, // the fan, the star, the orrery drawing itself
+    judgeTime: 3.2, // the lights falling
+    closeTime: 1.3, // the last light, and folding away
+
+    /* --- 1 · the conjuring --- */
+    conjureSize: 0.55, // metres across, at the shoulder and in flight
+    conjureHeight: 1.55, // metres over the floor
+    conjureReach: 0.8, // metres ahead of the caster
+    conjureSide: 0.45, // metres to the side
+    conjureMotes: 180, // motes/second spiralling in
+    moteSize: 0.06,
+    moteSwirl: 3.0,
+    edgeWidth: 0.08, // of the materialising front, × the book
+    edgeGlow: 6.0,
+    colorEdge: '#5fb6ff',
+
+    /* --- 2 · the flight --- */
+    flyArc: 2.2, // metres it rises over the higher end
+    flySpin: 1.0, // turns it makes on the way
+    flyTilt: 0.35, // radians it banks
+    flyTrail: 160, // particles/second shed behind it
+
+    /* --- 3 · the book --- */
+    size: 2.3, // metres across, full size
+    hoverHeight: 1.15, // metres, the middle of the book
+    hoverBob: 0.06,
+    bobRate: 0.4,
+    yawSpeed: 0.22, // radians/second it turns as it hangs there
+    glyphGlow: 4.0, // how hard the dial, glyphs and gems light with the charge
+    rimStrength: 0.25,
+
+    /* --- 4 · the orrery --- */
+    holoHeight: 1.7, // metres the star rises over the dial
+    holoRadius: 2.3, // metres, the widest orbit
+    planets: 4, // 0–6
+    orbitSpeed: 0.9, // radians/second round the widest orbit
+    orbitWidth: 0.014, // metres, the line
+    orbitIntensity: 1.4,
+    planetSize: 0.6,
+    planetIntensity: 1.3,
+    planetRegrow: 0.8, // seconds a thrown planet takes to gather again
+    coreSize: 1.7,
+    coreIntensity: 1.6,
+    fanRadius: 1.25, // metres across the top of the fan
+    fanIntensity: 1.2,
+    fanMotes: 90,
+    starRate: 80, // stars/second about the orrery
+    starSize: 0.09,
+    starReach: 1.2, // × holoRadius
+    openFlash: 0.05,
+
+    /* --- 5 · the judgement --- */
+    strikeInterval: 0.3, // seconds between throws
+    idleStrikeRate: 1.5, // floor throws/second with nobody left
+    cometFlight: 0.42, // seconds a light takes to land
+    cometArc: 0.18, // how far it bows up, × the distance
+    cometSize: 0.7,
+    cometIntensity: 1.6,
+    trailDensity: 18, // trail particles per metre
+    beamWidth: 0.07,
+    beamIntensity: 2.4,
+    aimHeight: 0.6, // × body height
+    impactSparks: 40,
+    strikeShake: 0.18,
+    strikeFlash: 0.04,
+    strikeLight: 50.0,
+    strikeLightRadius: 8.0,
+    hit: {
+      impulse: 7.0,
+      lift: 5.0,
+      spin: 1.4
+    },
+
+    /* --- 6 · the finale --- */
+    finaleShake: 0.45,
+    finaleFlash: 0.12,
+    finaleLight: 90.0,
+
+    /* --- 7 · the zodiac --- */
+    sigilIntensity: 1.1,
+    sigilSpin: 0.4,
+
+    /* --- palette --- */
+    colorCore: '#ffffff',
+    colorGlow: '#2a7dff',
+    colorLine: '#5ab6ff',
+    colorSpark: '#e4f5ff',
+    colorStar: '#cfe9ff',
+    colorSigil: '#3a86ff',
+    colorDeep: '#0a2470',
+
+    /* --- light --- */
+    lightIntensity: 10.0,
+    lightRadius: 11.0,
+    lightColor: '#4f9dff'
+  },
+
+  /* ================================================================== */
+  /* AMETHYST — Amethyst Verdict                                         */
+  /* ================================================================== */
+  /**
+   * A targeted far cast: one body, crushed. The circle locks onto whoever is
+   * under the cursor. A rite writes itself on the floor round them, with a
+   * socket circle at every point of a star on its edge; an amethyst point
+   * rises out of every socket and hangs there, charging; they all turn their
+   * points on the body, draw back, and come in one after another, each one
+   * shattering on it. The last of them sets off the whole circle.
+   *
+   * Times in **The timing** are seconds after the cast lands, each act
+   * following the last. Everything is re-read every frame. The stones are the
+   * five cut in Blender (`public/models/amethyst_stones.glb`), dealt out at
+   * random to the sockets.
+   */
+  amethyst: {
+    /* --- the cast --- */
+    range: 18.0,
+    minRange: 0,
+    speed: 48.0, // the cast's run to the target, m/s
+    cooldown: 7.0,
+    castAnim: 'cast2',
+    zoneRadius: 3.2, // the circle round the target, metres
+    snapRadius: 2.4, // how far from the cursor a body is snapped onto, metres
+    fadeTime: 1.6, // seconds the circle and the dust take to go
+
+    /* --- the timing --- */
+    drawTime: 0.45, // the circle writing itself
+    socketStagger: 0.07, // seconds between one socket opening and the next
+    socketOpen: 0.3, // seconds a socket takes to inscribe itself
+    riseTime: 0.55, // seconds a stone takes to come up out of its socket
+    riseStagger: 0.08, // seconds between stones rising
+    hoverTime: 0.55, // seconds they hang, charging, before they turn
+    aimTime: 0.4, // seconds they take to turn their points on the body
+    launchStagger: 0.09, // seconds between one stone coming and the next
+    flightTime: 0.2, // seconds a stone takes to cross to the body
+    finaleDelay: 0.08, // seconds after the last stone before the circle goes off
+    afterTime: 0.9, // seconds the rite holds after the finale
+
+    /* --- 1 · the circle --- */
+    stones: 6, // sockets on the edge, one stone each (3–8)
+    socketRadius: 0.55, // metres
+    circleIntensity: 1.1,
+    circleSpin: 0.5,
+
+    /* --- 2 · the stones --- */
+    stoneSize: 1.35, // metres tall
+    stoneSizeVariance: 0.18,
+    hoverHeight: 2.1, // metres, the middle of a hanging stone
+    hoverVariance: 0.45,
+    hoverBob: 0.08, // metres
+    hoverSpin: 0.9, // radians/second about its own axis
+    riseOvershoot: 0.25, // metres it overshoots before settling
+    windup: 0.55, // metres it draws back before it comes
+    tremble: 0.025, // metres, while it is drawn back
+    flightSpin: 9.0, // radians/second it drills on the way in
+    stopShort: 0.18, // metres short of the body's middle it breaks
+    aimHeight: 0.95, // metres, where on a standing body they aim
+
+    /* --- 3 · the crystal --- */
+    stoneCloud: 1.0,
+    stoneVeins: 1.0,
+    stoneInner: 0.35, // light held inside, at rest
+    stoneRim: 0.55,
+    stoneEnv: 1.4,
+    chargeGlow: 1.0, // how lit the stones get before they come
+
+    /* --- 4 · the shattering --- */
+    shards: 14, // real pieces per stone
+    shardSize: 0.2, // metres
+    shardSpeed: 6.5, // m/s
+    shardLife: 2.4, // seconds before they melt away
+    chipCount: 40, // fine chips per stone
+    sparkCount: 34,
+    dustCount: 6,
+    impactShake: 0.14,
+    impactLight: 26.0,
+    hit: {
+      impulse: 2.5, // the first stone takes it off its feet
+      lift: 3.0,
+      spin: 0.9
+    },
+    shove: 3.2, // m/s each later stone drives the body along its line
+    shoveLift: 1.2, // m/s up with each
+
+    /* --- 5 · the finale --- */
+    finaleLift: 6.5, // m/s the body is thrown up
+    finaleShards: 22,
+    finaleShake: 0.5,
+    finaleFlash: 0.12,
+    finaleLight: 90.0,
+
+    /* --- palette --- */
+    colorDeep: '#2a0b45',
+    colorStone: '#7a3aa8',
+    colorPale: '#e2c6f5',
+    colorGlow: '#b56bff',
+    colorVein: '#fff1ff',
+    colorCircle: '#9a5cff',
+    colorSocket: '#e0b3ff',
+    colorCharge: '#ff7af0',
+    colorSpark: '#f6d9ff',
+    colorDust: '#6b4a85',
+
+    /* --- light --- */
+    lightIntensity: 10.0,
+    lightRadius: 9.0,
+    lightColor: '#b06bff'
+  },
+
+  /* ================================================================== */
   /* SHARD — Corrupted Shard Spawn                                       */
   /* ================================================================== */
   /**
@@ -3311,7 +3552,9 @@ export const ELEMENTS = [
   // Past the digits: a letter only.
   'chains',
   'dragon',
-  'gyro'
+  'gyro',
+  'amethyst',
+  'tome'
 ];
 
 /**
@@ -3413,6 +3656,21 @@ export const ELEMENT_META = {
     accent: '#a77bff',
     key: 'O',
     hint: 'Stormheart Gyroscope — a gyroscope condenses over the circle and strikes everyone in it with lightning',
+    cast: CastShape.ZONE
+  },
+  amethyst: {
+    label: 'Amethyst Verdict',
+    accent: '#c07bff',
+    key: 'U',
+    hint: 'Amethyst Verdict — amethyst points rise round the target and crush it',
+    cast: CastShape.ZONE,
+    snap: true
+  },
+  tome: {
+    label: 'Astral Tome',
+    accent: '#4f9dff',
+    key: ';',
+    hint: 'Astral Tome — a tome flies to the circle, opens an orrery over it, and its planets fall on everyone inside',
     cast: CastShape.ZONE
   }
 };

@@ -19,6 +19,8 @@ import { buildPhoenixRig } from '../assets/PhoenixRig.js';
 import { buildSharkRig } from '../assets/SharkRig.js';
 import { buildDragonRig } from '../assets/DragonRig.js';
 import { buildGyroscopeRig } from '../assets/GyroscopeRig.js';
+import { buildAmethystRig } from '../assets/AmethystRig.js';
+import { buildTomeRig } from '../assets/TomeRig.js';
 import { CharacterController } from '../animation/CharacterController.js';
 import { DummyField } from '../combat/DummyField.js';
 
@@ -52,6 +54,8 @@ const PHOENIX_URL = './models/phoenix_bird.glb';
 const SHARK_URL = './models/shark.glb';
 const DRAGON_URL = './models/dragon.glb';
 const GYRO_URL = './models/magical_gyroscope.glb';
+const AMETHYST_URL = './models/amethyst_stones.glb';
+const TOME_URL = './models/arcane_tome.glb';
 
 const _summonHeading = new Vector3();
 
@@ -772,6 +776,16 @@ export class App {
     const gyro = await assets.loadGLTF(GYRO_URL);
     await assets.settled();
     this.models.gyro = buildGyroscopeRig(gyro, { height: settings.gyro.size });
+
+    this.loading.setProgress(0.8498, 'Cutting the amethyst…');
+    // Cut in Blender; the ability falls back to a stand-in if it never lands.
+    const amethyst = await assets.loadGLTF(AMETHYST_URL).catch(() => null);
+    this.models.amethyst = buildAmethystRig(amethyst);
+
+    this.loading.setProgress(0.8499, 'Binding the tome…');
+    // Built in Blender; without it the orrery still opens, with no book under it.
+    const tome = await assets.loadGLTF(TOME_URL).catch(() => null);
+    this.models.tome = buildTomeRig(tome);
 
     await this._precompile(0.85, 0.99);
 
