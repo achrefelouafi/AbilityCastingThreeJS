@@ -549,10 +549,20 @@ body {
 
 .hud__contact {
   --contact-accent: var(--ui-accent);
+  /* The source link's gold: fixed, not the armed ability's accent. Burnished
+     on the dark glass rather than gold leaf on paper. */
+  --contact-gold: #e0b252;
+  --contact-gold-light: #ffe29a;
+  --contact-gold-deep: #8a5f17;
+  --contact-gold-text: #ffe7ad;
+  --contact-gold-paper: linear-gradient(135deg, rgba(74, 52, 14, 0.62), rgba(30, 22, 8, 0.78));
+  --contact-gold-edge: linear-gradient(120deg, var(--contact-gold-deep), var(--contact-gold-light) 35%,
+    var(--contact-gold) 60%, var(--contact-gold-deep));
   position: absolute;
   right: 22px;
   bottom: 26px;
   width: 278px;
+  max-width: calc(100vw - 28px);
   pointer-events: auto;
   opacity: 0;
 }
@@ -772,11 +782,41 @@ body {
   color: var(--ui-text-dim);
 }
 
+/* A hairline under the header, with a glint of the accent passing now and then. */
+.contact__rule {
+  position: relative;
+  height: 1px;
+  margin: 12px -14px 0;
+  overflow: hidden;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12) 20%,
+    rgba(255, 255, 255, 0.18) 50%, rgba(255, 255, 255, 0.12) 80%, transparent);
+}
+
+.contact__rule > b {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 26%;
+  background: linear-gradient(90deg, transparent, var(--contact-accent), transparent);
+  transform: translateX(-110%);
+  animation: contact-glint 9s ease-in-out 2.5s infinite;
+}
+
+@keyframes contact-glint {
+  0%,
+  70% {
+    transform: translateX(-110%);
+  }
+  95%,
+  100% {
+    transform: translateX(400%);
+  }
+}
+
 .contact__note {
   position: relative;
-  margin: 11px 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--ui-border);
+  margin: 11px 0 12px;
   font-size: 11px;
   line-height: 1.55;
   color: var(--ui-text-dim);
@@ -891,6 +931,67 @@ body {
   box-shadow: 0 0 16px -6px var(--contact-accent);
 }
 
+/* The source code: a gold edge on dark glass, with its own sheen now and then. */
+.contact__link--code {
+  position: relative;
+  overflow: hidden;
+  border-color: transparent;
+  background: var(--contact-gold-paper) padding-box, var(--contact-gold-edge) border-box;
+  box-shadow: 0 6px 20px -12px rgba(224, 178, 82, 0.9);
+}
+
+.contact__link--code:hover,
+.contact__link--code:focus-visible {
+  background: linear-gradient(135deg, rgba(96, 68, 18, 0.7), rgba(40, 29, 10, 0.82)) padding-box,
+    var(--contact-gold-edge) border-box;
+  box-shadow: 0 8px 26px -10px rgba(240, 190, 90, 0.9);
+}
+
+.contact__link--code .contact__icon {
+  border-color: transparent;
+  background: linear-gradient(145deg, var(--contact-gold-light), var(--contact-gold) 55%,
+    var(--contact-gold-deep));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 0 14px -6px var(--contact-gold);
+  color: #2a1c04;
+}
+
+.contact__link--code .contact__link-text b {
+  color: var(--contact-gold-text);
+}
+
+.contact__link--code .contact__link-text em {
+  color: rgba(240, 200, 120, 0.72);
+}
+
+.contact__link--code .contact__go {
+  color: var(--contact-gold);
+  opacity: 0.85;
+}
+
+.contact__link--code::after,
+.contact__code-pill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 236, 180, 0.28), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  animation: contact-code-sheen 6s ease-in-out 1.5s infinite;
+  pointer-events: none;
+}
+
+@keyframes contact-code-sheen {
+  0%,
+  70% {
+    transform: translateX(-160%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(360%) skewX(-18deg);
+  }
+}
+
 /* ---- collapse ---------------------------------------------------- */
 
 .contact__toggle {
@@ -937,13 +1038,16 @@ body {
 }
 
 .hud__contact.is-collapsed .contact__who,
+.hud__contact.is-collapsed .contact__rule,
 .hud__contact.is-collapsed .contact__note,
 .hud__contact.is-collapsed .contact__links {
   display: none;
 }
 
-.hud__contact.is-collapsed .contact:hover {
-  transform: scale(1.06);
+@media (hover: hover) {
+  .hud__contact.is-collapsed .contact:hover {
+    transform: scale(1.06);
+  }
 }
 
 .hud__contact.is-collapsed .contact__toggle {
@@ -994,16 +1098,107 @@ body {
   transition: opacity 0.22s ease, transform 0.22s ease;
 }
 
-.hud__contact.is-collapsed .contact:hover .contact__toggle::after,
+/* Hover only where there is one: a phone keeps :hover on the tile after a
+   tap, which would leave the label up and the source pill hidden. */
 .hud__contact.is-collapsed .contact__toggle:focus-visible::after {
   opacity: 1;
   transform: translate(0, -50%);
 }
 
+@media (hover: hover) {
+  .hud__contact.is-collapsed .contact:hover .contact__toggle::after {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+}
+
+/* The source link, out beside the portrait: same place as the label above,
+   which takes over while the tile is hovered. */
+.contact__code-pill {
+  display: none;
+}
+
+.hud__contact.is-collapsed .contact__code-pill {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 10px);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 13px 8px 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--contact-gold-paper) padding-box, var(--contact-gold-edge) border-box;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--ui-shadow), 0 6px 20px -10px rgba(224, 178, 82, 0.9);
+  color: var(--contact-gold-text);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  transform: translateY(-50%);
+  transition: opacity 0.22s ease, transform 0.22s ease, box-shadow 0.2s ease;
+}
+
+.contact__code-pill svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  color: var(--contact-gold);
+}
+
+.hud__contact.is-collapsed .contact__code-pill:hover,
+.hud__contact.is-collapsed .contact__code-pill:focus-visible {
+  outline: none;
+  transform: translate(-2px, -50%);
+  box-shadow: var(--ui-shadow), 0 8px 24px -8px rgba(240, 190, 90, 0.95);
+}
+
+.hud__contact.is-collapsed .contact:has(.contact__toggle:focus-visible) ~ .contact__code-pill {
+  opacity: 0;
+  transform: translate(-8px, -50%);
+  pointer-events: none;
+}
+
+@media (hover: hover) {
+  .hud__contact.is-collapsed .contact:hover ~ .contact__code-pill {
+    opacity: 0;
+    transform: translate(-8px, -50%);
+    pointer-events: none;
+  }
+}
+
+/* Touch: no hover to reveal the fold button, so it stays out, sized for a thumb. */
+@media (hover: none) {
+  .contact__toggle {
+    opacity: 1;
+    border-color: var(--ui-border);
+    background: rgba(0, 0, 0, 0.4);
+  }
+}
+
+@media (pointer: coarse) {
+  .contact__toggle {
+    top: 6px;
+    right: 6px;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .contact::after,
   .contact__portrait::before,
-  .contact__status i {
+  .contact__rule > b,
+  .contact__status i,
+  .contact__link--code::after,
+  .contact__code-pill::after {
     animation: none;
   }
   .hud__contact.is-ready {
@@ -1021,7 +1216,7 @@ body {
 
 /*
  * Short window: the editor's column comes down towards the corner, so the card
- * gives up the line about the work and keeps the two links.
+ * gives up the line about the work and keeps the links.
  */
 @media (max-height: 860px) {
   .contact__note {
@@ -1029,8 +1224,35 @@ body {
   }
   .contact__links {
     margin-top: 12px;
-    padding-top: 11px;
-    border-top: 1px solid var(--ui-border);
+  }
+}
+
+/* Very short window (a phone on its side): opened by hand, the card keeps to
+   the essentials. */
+@media (max-height: 600px) {
+  .contact {
+    padding: 11px 12px;
+  }
+  .contact__rule {
+    margin: 10px -12px 0;
+  }
+  .contact__links {
+    margin-top: 10px;
+    gap: 5px;
+  }
+  .contact__link {
+    padding: 5px 10px 5px 7px;
+  }
+  .contact__link-text em {
+    display: none;
+  }
+  .contact__portrait {
+    flex-basis: 46px;
+    width: 46px;
+    height: 46px;
+  }
+  .contact__name {
+    font-size: 15px;
   }
 }
 
@@ -1040,7 +1262,7 @@ body {
   .hud__contact {
     right: 14px;
     bottom: 14px;
-    width: 214px;
+    width: 236px;
   }
   .contact__link-text em {
     display: none;
