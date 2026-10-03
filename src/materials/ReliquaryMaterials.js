@@ -110,8 +110,7 @@ const ROOT_DECL = /* glsl */ `
     float ang = position.y * RTAU;
     vec3 n = N * cos(ang) + B * sin(ang);
     float seed = aStrand2.y;
-    float lump = 1.0 + 0.16 * snoise(vec3(along * 2.2, cos(ang) * 0.9, sin(ang) * 0.9) + seed * 7.0)
-                     + 0.06 * snoise(vec3(along * 9.0, cos(ang) * 2.5, sin(ang) * 2.5) + seed * 3.0);
+    float lump = 1.0 + 0.14 * snoise(vec3(along * 1.6, cos(ang) * 0.8, sin(ang) * 0.8) + seed * 7.0);
     float rs = c.w * aStrand.z * taper * lump * (1.0 - 0.3 * st.y);
 
     P = centre + n * rs;
@@ -306,7 +305,7 @@ export function createBarkMaterial(bank) {
         .replace(
           '#include <roughnessmap_fragment>',
           `#include <roughnessmap_fragment>
-           roughnessFactor = mix(0.92, 0.6, barkLichen * 0.6 + barkMoss * 0.2);`
+           roughnessFactor = mix(0.95, 0.75, barkLichen * 0.6 + barkMoss * 0.2);`
         )
         .replace(
           '#include <normal_fragment_maps>',
@@ -368,6 +367,7 @@ export function createBarkMaterial(bank) {
     uniforms.uTipGlow.value = c.tipGlow;
     uniforms.uRim.value = c.barkRim;
     uniforms.uTaper.value = c.taper;
+    material.envMapIntensity = c.barkEnv;
   };
   return material;
 }

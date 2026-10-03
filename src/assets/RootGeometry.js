@@ -303,7 +303,7 @@ function parameterGrid(rows, columns, acrossFrom = 0, acrossTo = 1) {
  *   handedness (±1, scaled by the curve's turns per metre), `kind` 0 bark,
  *   1 vine.
  */
-export function createRootGeometry(strands, rows = 112, columns = 12) {
+export function createRootGeometry(strands, rows = 112, columns = 16) {
   const { positions, indices } = parameterGrid(rows, columns);
   const geometry = new InstancedBufferGeometry();
   geometry.setAttribute('position', new BufferAttribute(positions, 3));

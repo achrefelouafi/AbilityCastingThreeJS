@@ -2391,6 +2391,7 @@ export class Editor {
     R(bark, c, 'sapSpeed', -4, 4, 0.01, 'sap speed');
     R(bark, c, 'tipGlow', 0, 20, 0.05, 'growing tip');
     R(bark, c, 'barkRim', 0, 3, 0.01, 'rim');
+    R(bark, c, 'barkEnv', 0, 2, 0.01, 'reflections');
     R(bark, c, 'taper', 0.05, 3, 0.01, 'tip taper (m)');
     R(bark, c, 'leafSize', 0.05, 1.5, 0.005, 'leaf length (m)');
     R(bark, c, 'leafTranslucency', 0, 4, 0.01, 'leaf translucency');

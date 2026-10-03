@@ -2617,8 +2617,8 @@ export const settings = {
     archTwist: 0.55, // turns per metre the strands braid at
     archTwine: 0.3, // metres each leans off the plane, crossing over the top
     archSway: 0.05, // metres
-    vines: 2, // wound round each great root (0–2)
-    vineRadius: 0.045,
+    vines: 1, // wound round each great root (0–2)
+    vineRadius: 0.06,
     vineTurns: 0.45, // turns per metre
     curls: 8, // tendrils curling off the arch (0–8)
     curlLength: 1.25, // metres
@@ -2636,6 +2636,7 @@ export const settings = {
     sapSpeed: 1.0,
     tipGlow: 5.0, // the growing tip
     barkRim: 0.35,
+    barkEnv: 0.35, // how much of the hall the bark reflects
     taper: 0.55, // metres the tip tapers over
     leafSize: 0.3, // metres
     leafTranslucency: 1.0,
