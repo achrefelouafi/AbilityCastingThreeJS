@@ -86,6 +86,7 @@ const ROOT_DECL = /* glsl */ `
   attribute vec4 aStrand2;  // handedness of the twist (× the curve's turns/m), seed, kind, -
   varying vec4 vRoot;       // metres along, angle round, metres short of the tip, kind
   varying vec4 vRoot2;      // seed, growing, wither, sap glow
+  varying float vRootUp;    // how much the surface faces the sky
 
   void rootPlace(out vec3 P, out vec3 Nrm) {
     int ci = int(aStrand.x + 0.5);
@@ -115,6 +116,7 @@ const ROOT_DECL = /* glsl */ `
 
     P = centre + n * rs;
     Nrm = n;
+    vRootUp = n.y;
     vRoot = vec4(along, ang, (g - u) * L, aStrand2.z);
     vRoot2 = vec4(seed + aStrand.y * 3.0, step(g, 0.999), st.y, st.z);
   }
@@ -256,6 +258,7 @@ export function createBarkMaterial(bank) {
            uniform float uMossAmount, uLichenAmount, uBump, uVeinGlow, uSapSpeed, uTipGlow, uRim;
            varying vec4 vRoot;
            varying vec4 vRoot2;
+           varying float vRootUp;
            ${noiseGLSL}
            ${BUMP_GLSL}
            float barkH;
@@ -271,24 +274,25 @@ export function createBarkMaterial(bank) {
              vec2 ca = vec2(cos(vRoot.y), sin(vRoot.y));
              float seed = vRoot2.x;
              float vine = step(0.5, vRoot.w);
-             // Fibres: noise stretched hard along the length, so the bark
-             // runs in plates and fissures up the root.
-             float f1 = snoise(vec3(along * 1.1, ca * 2.4) + seed);
-             float f2 = snoise(vec3(along * 3.2, ca * 6.5) + seed * 1.7);
-             float f3 = snoise(vec3(along * 9.0, ca * 14.0) + seed * 2.3);
-             float fib = f1 * 0.6 + f2 * 0.3 + f3 * 0.1;
-             barkCrev = 1.0 - smoothstep(0.0, 0.16, abs(fib));
-             barkH = smoothstep(0.0, 0.5, abs(fib)) + f3 * 0.15;
-             barkH = mix(barkH, f2 * 0.3 + 0.5, vine * 0.7);
+             // Plates: noise stretched along the length, so the bark runs in
+             // broad plates up the root, split by one family of long fissures
+             // where it crosses zero. A finer octave only roughens them.
+             float f1 = snoise(vec3(along * 0.75, ca * 1.7) + seed);
+             float f2 = snoise(vec3(along * 2.6, ca * 4.2) + seed * 1.7);
+             float f3 = snoise(vec3(along * 7.0, ca * 9.0) + seed * 2.3);
+             float plate = abs(f1 + f2 * 0.14);
+             barkCrev = 1.0 - smoothstep(0.015, 0.075, plate);
+             barkH = smoothstep(0.0, 0.3, plate) * (0.85 + 0.15 * f2) + f3 * 0.04;
+             barkH = mix(barkH, f2 * 0.2 + 0.5, vine * 0.7);
 
              float grain = f2 * 0.5 + 0.5;
-             vec3 bark = mix(uBarkDark, uBarkLight, smoothstep(0.15, 0.85, grain * 0.7 + barkH * 0.4));
-             bark *= 1.0 - barkCrev * 0.55;
+             float tone = snoise(vec3(along * 0.25, ca * 0.6) + seed * 3.0) * 0.5 + 0.5;
+             vec3 bark = mix(uBarkDark, uBarkLight, smoothstep(0.1, 0.9, tone * 0.55 + grain * 0.3 + barkH * 0.25));
+             bark *= 1.0 - barkCrev * 0.7;
 
              // Moss where it faces the sky, lichen in teal blooms.
-             vec3 wn = inverseTransformDirection(normalize(vNormal), viewMatrix);
              float m = snoise(vec3(along * 0.55, ca * 0.9) + seed * 4.0) * 0.5 + 0.5;
-             barkMoss = smoothstep(0.55, 0.85, m + wn.y * 0.25) * uMossAmount;
+             barkMoss = smoothstep(0.55, 0.85, m + vRootUp * 0.25) * uMossAmount;
              float l = snoise(vec3(along * 0.8, ca * 1.4) + seed * 9.0 + 20.0) * 0.5 + 0.5;
              barkLichen = smoothstep(0.58, 0.82, l) * uLichenAmount;
              bark = mix(bark, uMoss * (0.7 + 0.5 * grain), barkMoss);

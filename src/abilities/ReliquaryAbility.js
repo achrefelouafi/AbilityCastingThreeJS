@@ -305,8 +305,8 @@ export class ReliquaryAbility extends Ability {
     const rnd = (a, b) => a + Math.random() * (b - a);
     const leaf = (curve, u, size, tilt, droop) =>
       leaves.push({ curve, u, angle: Math.random(), size, tilt, droop, seed: Math.random(), hue: Math.random() });
-    for (let m = 0; m < 2; m++) for (let i = 0; i < 46; i++) leaf(MAIN + m, rnd(0.07, 0.97), rnd(0.55, 1.1), rnd(0.2, 1), rnd(0.2, 0.9));
-    for (let v = 0; v < 4; v++) for (let i = 0; i < 12; i++) leaf(VINE + v, rnd(0.08, 0.98), rnd(0.4, 0.8), rnd(0.3, 1), rnd(0.3, 1));
+    for (let m = 0; m < 2; m++) for (let i = 0; i < 30; i++) leaf(MAIN + m, rnd(0.07, 0.97), rnd(0.55, 1.1), rnd(0.2, 1), rnd(0.2, 0.9));
+    for (let v = 0; v < 4; v++) for (let i = 0; i < 8; i++) leaf(VINE + v, rnd(0.08, 0.98), rnd(0.4, 0.8), rnd(0.3, 1), rnd(0.3, 1));
     for (let k = 0; k < N_CURLS; k++) for (let i = 0; i < 4; i++) leaf(CURL + k, rnd(0.1, 0.6), rnd(0.35, 0.7), rnd(0.2, 0.9), rnd(0.2, 0.7));
     for (let k = 0; k < N_GROUND; k++) for (let i = 0; i < 4; i++) leaf(GROUND + k, rnd(0.15, 0.9), rnd(0.4, 0.75), rnd(0.6, 1), 0.05);
     for (let k = 0; k < 4; k++) for (let i = 0; i < 3; i++) leaf(BIND + k, rnd(0.08, 0.42), rnd(0.35, 0.6), rnd(0.4, 1), rnd(0.2, 0.6));

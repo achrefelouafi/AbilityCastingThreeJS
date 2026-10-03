@@ -2614,7 +2614,7 @@ export const settings = {
     archRadius: 0.3, // metres, at the foot
     archTipRadius: 0.07,
     archFlare: 0.9, // how much the foot swells
-    archTwist: 0.3, // turns per metre the strands braid at
+    archTwist: 0.55, // turns per metre the strands braid at
     archTwine: 0.3, // metres each leans off the plane, crossing over the top
     archSway: 0.05, // metres
     vines: 2, // wound round each great root (0–2)
@@ -2628,16 +2628,16 @@ export const settings = {
     eruptShake: 0.22,
 
     /* --- 3 · the bark and the leaves --- */
-    barkBump: 1.0,
-    moss: 0.55,
-    lichen: 0.6,
+    barkBump: 0.8,
+    moss: 0.22,
+    lichen: 0.35,
     veinGlow: 1.0, // light in the crevices
     sapGlow: 1.0, // the sap pulses, once the runes are lit
     sapSpeed: 1.0,
     tipGlow: 5.0, // the growing tip
     barkRim: 0.35,
     taper: 0.55, // metres the tip tapers over
-    leafSize: 0.42, // metres
+    leafSize: 0.3, // metres
     leafTranslucency: 1.0,
 
     /* --- 4 · the reliquary --- */
@@ -2657,7 +2657,7 @@ export const settings = {
     converge: 0.22, // how far they close in as the runes light
 
     /* --- 5 · the stone --- */
-    patina: 0.55,
+    patina: 0.4,
     glyphGlow: 1.0,
     carveDepth: 1.0,
     stoneRim: 0.45,
@@ -2708,8 +2708,8 @@ export const settings = {
     leafFall: 14,
 
     /* --- palette --- */
-    colorBarkDark: '#1f1912',
-    colorBark: '#6b5a48',
+    colorBarkDark: '#2a2119',
+    colorBark: '#7d6c5b',
     colorMoss: '#5c8a2c',
     colorLichen: '#2fb8a8',
     colorVine: '#4f7a2a',
