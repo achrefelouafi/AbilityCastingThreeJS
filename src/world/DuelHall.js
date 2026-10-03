@@ -116,7 +116,7 @@ float castleSweep(float amount) {
  * exactly on y = 0 and spans 16.3 m, so the targets' spawn ring (13 m) stays on
  * it, and it carries the same floor-hole discard as `Ground` so an ability that
  * opens the floor still opens this one. `Ground` is hidden instead of removed —
- * AR mode needs it back as the shadow catcher, and the hall steps out there.
+ * it comes back as the ground far below once the castle burns away.
  *
  * Everything in the export is rebuilt here by material name rather than taken
  * from the glTF: the Blender look is procedural node work that does not export,
@@ -143,7 +143,6 @@ export class DuelHall {
     this.group = new Group();
     this.group.name = 'DuelHall';
     this.loaded = false;
-    this._ar = false;
 
     /** Spinning parts: { object, base quaternion, turns per second, local? }. */
     this._spinners = [];
@@ -814,14 +813,13 @@ uniform float uVelvet;`)
 
   setVisible(on) {
     this._visible = on;
-    this.group.visible = on && !this._ar;
+    this.group.visible = on;
     this._applyStage();
     this._applyLightLevels();
   }
 
   /**
-   * The stone plane. With no hall it is the stage, at y = 0 — and AR always
-   * wants it there, as the shadow catcher. Inside the castle it is hidden: the
+   * The stone plane. With no hall it is the stage, at y = 0. Inside the castle it is hidden: the
    * cloth is the stage and the hall has its own floor. With the castle gone it
    * comes back as the ground under the floating platform, running out into
    * the fog: it appears just under the hall's floor as the burn starts (so the
@@ -851,11 +849,6 @@ uniform float uVelvet;`)
     this._burnClock = (away ? this._burnShown : 1 - this._burnShown) * duration;
   }
 
-  setAR(on) {
-    this._ar = on;
-    this.setVisible(this._visible ?? settings.hall.enabled);
-  }
-
   _applyLightLevels() {
     const k = this.group.visible ? settings.hall.lightIntensity : 0;
     const shown = this._burnShown;
@@ -867,7 +860,7 @@ uniform float uVelvet;`)
     const hall = settings.hall;
     this._startBurn(!hall.castle);
     const duration = Math.max(0.05, hall.castleFade);
-    // Hall switched off (or AR) mid-burn: land on the end state instead.
+    // Hall switched off mid-burn: land on the end state instead.
     if (!this.group.visible) this._burnClock = 1e4;
     else if (this._burnClock < 1e4) this._burnClock += realDt;
     const progress = Math.min(1, this._burnClock / duration);

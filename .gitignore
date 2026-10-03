@@ -137,3 +137,6 @@ dist
 
 # Local VFX capture scratch (dev tooling)
 .captures/
+
+# Promo videos for X posts (not documentation)
+*.mp4

@@ -26,23 +26,11 @@ import { openSignal, probeSignal } from './PhoneSignal.js';
  * this works for one person at one desk with `npm run dev:lan`. Shipping it
  * would mean a signalling service and, beyond the LAN, a TURN server.
  *
- * AR mode adds a second direction. The phone places the stage itself — its
- * page has the corner handles — and sends the frozen frame and the corners
- * over the relay (`plane`); and the desktop sends its *rendered view* back
- * as a second video track, so the phone is a window onto the stage standing
- * on the table in front of it. The phone offers that return line up front
- * (a receive-only video transceiver, its `mid` named in the offer), so the
- * desktop can attach and detach the track without ever renegotiating.
- *
  * Events:
  *   `status` (text, kind)   — a line for the panel; kind is 'info'|'warn'|'error'|'live'
  *   `phone`  (present)      — the phone page is (not) connected to the relay
  *   `stream` (MediaStream)  — video is flowing; hand this to the tracker
  *   `ended`  (reason)       — the stream went away, cleanly ('bye') or not
- *   `plane`  (message)      — the phone placed the stage: corners (0..1 × 8),
- *                             aspect, and the frozen frame as a data URL
- *   `corners` (corners)     — the phone is dragging its handles (live)
- *   `unplace` ()            — the phone took the stage away
  */
 
 const ROOM_KEY = 'elemental.phoneCam.room';
@@ -95,15 +83,6 @@ export class PhoneCameraLink extends EventEmitter {
     this.live = false;
     this.phonePresent = false;
     this.stream = null;
-    /**
-     * Pairing for AR mode: the page URL carries `ar=1`, which has the phone
-     * open its *rear* camera in HD — a table, not a face, and print has to
-     * stay legible on a projector.
-     */
-    this.arHint = false;
-    /** The desktop's rendered view, on its way back to the phone, or null. */
-    this.returnTrack = null;
-    this._returnSender = null;
 
     this._signal = null;
     this._pc = null;
@@ -130,50 +109,7 @@ export class PhoneCameraLink extends EventEmitter {
   get pageUrl() {
     if (!this.room || !this.urls.length) return '';
     const base = this.urls[this.urlIndex % this.urls.length];
-    return `${base.replace(/\/$/, '')}/phone.html?room=${this.room}${this.arHint ? '&ar=1' : ''}`;
-  }
-
-  /**
-   * Ask a phone that is already streaming to change its camera: `ar` picks
-   * the rear camera in HD, and back. The track is swapped in place on the
-   * phone, so the stream here never blinks.
-   */
-  requestMode({ ar = false } = {}) {
-    this._send({ type: 'mode', ar });
-  }
-
-  /**
-   * Send the desktop's rendered view to the phone — or stop, with null.
-   * Takes effect on the current peer and on every one after it.
-   */
-  setReturnTrack(track) {
-    this.returnTrack = track;
-    this._applyReturnTrack();
-  }
-
-  _applyReturnTrack() {
-    const sender = this._returnSender;
-    if (!sender) return;
-    sender.replaceTrack(this.returnTrack ?? null).catch(() => {});
-    if (!this.returnTrack) return;
-    try {
-      // A LAN has the headroom; the phone does not need more than 720p-ish.
-      const params = sender.getParameters();
-      if (!params.encodings?.length) params.encodings = [{}];
-      params.encodings[0].maxBitrate = 8_000_000;
-      const width = this.returnTrack.getSettings?.().width ?? 0;
-      params.encodings[0].scaleResolutionDownBy = width > 1400 ? width / 1280 : 1;
-      params.degradationPreference = 'maintain-framerate';
-      sender.setParameters(params).catch(() => {});
-    } catch {
-      /* not every browser lets these be set; the defaults are fine */
-    }
-  }
-
-  /** How the stage is doing, for the phone's status line. */
-  sendStage(status) {
-    if (!this.live) return;
-    this._send({ type: 'stage', ...status });
+    return `${base.replace(/\/$/, '')}/phone.html?room=${this.room}`;
   }
 
   async probe() {
@@ -303,17 +239,6 @@ export class PhoneCameraLink extends EventEmitter {
         // place, no renegotiation); only the status line cares.
         if (this.live) this._status(`Phone camera live${message.facing === 'environment' ? ' (rear camera)' : ''}`, 'live');
         break;
-      case 'plane':
-        if (Array.isArray(message.corners) && message.corners.length === 8 && typeof message.image === 'string') {
-          this.emit('plane', message);
-        }
-        break;
-      case 'corners':
-        if (Array.isArray(message.corners) && message.corners.length === 8) this.emit('corners', message.corners);
-        break;
-      case 'unplace':
-        this.emit('unplace');
-        break;
       default:
         break;
     }
@@ -376,24 +301,9 @@ export class PhoneCameraLink extends EventEmitter {
 
     await pc.setRemoteDescription({ type: 'offer', sdp: message.sdp });
 
-    // The return line, if the phone offered one: this side sends on it.
-    this._returnSender = null;
-    if (message.returnMid != null) {
-      const transceiver = pc.getTransceivers().find((t) => t.mid === String(message.returnMid));
-      if (transceiver) {
-        try {
-          transceiver.direction = 'sendonly';
-          this._returnSender = transceiver.sender;
-        } catch {
-          this._returnSender = null;
-        }
-      }
-    }
-
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     this._send({ type: 'answer', sdp: pc.localDescription.sdp, offerId: this._offerId });
-    this._applyReturnTrack();
 
     clearTimeout(this._connectTimer);
     this._connectTimer = setTimeout(() => {
@@ -426,7 +336,6 @@ export class PhoneCameraLink extends EventEmitter {
       this._pc.close();
       this._pc = null;
     }
-    this._returnSender = null;
     this.live = false;
     this.stream = null;
   }

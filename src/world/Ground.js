@@ -1,4 +1,4 @@
-import { Mesh, PlaneGeometry, MeshStandardMaterial, ShadowMaterial } from 'three';
+import { Mesh, PlaneGeometry, MeshStandardMaterial } from 'three';
 import { settings } from '../config/settings.js';
 import { getColor } from '../utils/color.js';
 import { noiseGLSL } from '../shaders/lib/noise.glsl.js';
@@ -131,16 +131,6 @@ export class Ground {
     this.mesh.updateMatrix();
 
     this.group = this.mesh;
-
-    /**
-     * AR mode's floor: the real table is the floor, so the plane draws
-     * nothing of its own — only the sun's shadow, as coverage over a frame
-     * that is composited in underneath. Opaque on purpose: it then goes out
-     * with the world geometry, in depth order, and every transparent effect
-     * blends over it the way it blends over the stone.
-     */
-    this.catcher = new ShadowMaterial({ color: 0x000000, opacity: 0.6, transparent: false });
-    this._catching = false;
   }
 
   /**
@@ -151,16 +141,6 @@ export class Ground {
     if (this.mesh.position.y === y) return;
     this.mesh.position.y = y;
     this.mesh.updateMatrix();
-  }
-
-  /**
-   * Swap the stone for the shadow catcher, or back. The mesh stays either
-   * way: the depth prepass and the decals still need a floor to meet.
-   */
-  setShadowCatcher(on) {
-    if (on === this._catching) return;
-    this._catching = on;
-    this.mesh.material = on ? this.catcher : this.material;
   }
 
   update(elapsed) {
@@ -176,6 +156,5 @@ export class Ground {
   dispose() {
     this.mesh.geometry.dispose();
     this.material.dispose();
-    this.catcher.dispose();
   }
 }

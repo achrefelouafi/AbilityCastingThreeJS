@@ -4,14 +4,7 @@
  * Combines the cheap-but-high-impact grading operations into one pass so the
  * frame is only resampled once: chromatic aberration, lift/gain/contrast/
  * saturation/temperature grading, vignette, film grain and the impact flash.
- *
- * In AR mode it is also where the camera frame goes *under* the stage. The
- * frame is composited here, after tone mapping, on purpose: it is a finished
- * sRGB picture already, and running it through the HDR chain would ACES-grade
- * a real table and bloom its highlights. The scene arrives premultiplied over
- * transparent black with its coverage in alpha — bloom adds to that alpha, so
- * a glow halo lands on the frame as light rather than as a cut-out — and the
- * composite is one `over`. `uVideoScale` is the cover-fit crop.
+
  */
 export const GradeShader = {
   name: 'GradeShader',
@@ -28,13 +21,7 @@ export const GradeShader = {
     uGain: { value: 1.0 },
     uGrain: { value: 0.03 },
     uFlashColor: { value: null },
-    uFlashStrength: { value: 0 },
-    tVideo: { value: null },
-    uVideoOn: { value: 0 },
-    uVideoOnly: { value: 0 },
-    uVideoScale: { value: null },
-    tDistortion: { value: null },
-    uVideoDistortion: { value: 0 }
+    uFlashStrength: { value: 0 }
   },
 
   vertexShader: /* glsl */ `
@@ -58,12 +45,6 @@ export const GradeShader = {
     uniform float uGrain;
     uniform vec3  uFlashColor;
     uniform float uFlashStrength;
-    uniform sampler2D tVideo;
-    uniform float uVideoOn;
-    uniform float uVideoOnly;
-    uniform vec2  uVideoScale;
-    uniform sampler2D tDistortion;
-    uniform float uVideoDistortion;
 
     varying vec2 vUv;
 
@@ -80,33 +61,13 @@ export const GradeShader = {
 
       // ---- chromatic aberration (radial, strongest at the corners) ------
       vec3 color;
-      float coverage = 1.0;
       if (uAberration > 0.001) {
         vec2 offset = centered * r2 * uAberration * 0.02;
         color.r = texture2D(tDiffuse, uv + offset).r;
-        vec4 centre = texture2D(tDiffuse, uv);
-        color.g = centre.g;
-        coverage = centre.a;
+        color.g = texture2D(tDiffuse, uv).g;
         color.b = texture2D(tDiffuse, uv - offset).b;
       } else {
-        vec4 centre = texture2D(tDiffuse, uv);
-        color = centre.rgb;
-        coverage = centre.a;
-      }
-
-      // ---- the camera frame, under the stage (AR mode) -------------------
-      if (uVideoOn > 0.5) {
-        vec2 videoUv = uv;
-        // The heat haze warps the scene in its own pass, upstream; the frame
-        // is not in that pass, so it takes the same offset here — or the
-        // table would sit dead still under a shimmering fireball.
-        if (uVideoDistortion > 0.0) {
-          vec4 d = texture2D(tDistortion, uv);
-          videoUv += (d.rg - 0.5) * 2.0 * d.b * d.a * uVideoDistortion;
-        }
-        vec3 video = texture2D(tVideo, clamp(0.5 + (videoUv - 0.5) * uVideoScale, 0.0, 1.0)).rgb;
-        // Premultiplied over: the scene is already scaled by its coverage.
-        color = uVideoOnly > 0.5 ? video : color + video * (1.0 - clamp(coverage, 0.0, 1.0));
+        color = texture2D(tDiffuse, uv).rgb;
       }
 
       // ---- grading -------------------------------------------------------

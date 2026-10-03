@@ -27,8 +27,6 @@ import { InputManager } from '../input/InputManager.js';
 import { AimController } from '../input/AimController.js';
 import { HandInput } from '../input/HandInput.js';
 import { PhoneCameraLink } from '../input/PhoneCamera.js';
-import { ARSession } from '../ar/ARSession.js';
-import { openPrintableMat } from '../ar/StageMat.js';
 
 import { ParticleEngine } from '../particles/ParticleEngine.js';
 import { LightPool } from '../effects/LightPool.js';
@@ -176,24 +174,6 @@ export class App {
     this.phone = new PhoneCameraLink();
     this.cameraMode = false;
     this._editorWasHidden = false;
-    /**
-     * AR mode: the stage anchored to a real rectangle seen by a camera.
-     * Cold like the others — the worker, the canvases and the video element
-     * cost nothing until `N`. See `ar/ARSession.js`.
-     */
-    this.ar = new ARSession();
-    this.arMode = false;
-    /** Which camera feeds the tracker: 'phone' | 'webcam' | ''. */
-    this._arSource = '';
-    /** Where the hands come from in AR mode: the AR camera, or the webcam. */
-    this._arHands = 'ar';
-    /** A webcam opened for AR alone, to be closed with it. */
-    this._arWebcam = null;
-    this._arEditorWasHidden = false;
-    this._arSavedClip = { near: 0.1, far: 400 };
-    /** The rendered view, captured for the phone to look through. */
-    this._returnStream = null;
-    this._stageSentAt = 0;
 
     this.aim = new AimController(this.camera);
     // A targeted cast locks its circle onto a body; the field is who it can pick.
@@ -274,102 +254,27 @@ export class App {
 
     // The phone camera. The link hands over a stream when video is flowing and
     // says when it has gone; the tracker is swapped under the panel either
-    // way, and the panel's preview follows the tracker's video element. Two
-    // panels can ask for the phone — the camera panel and the AR panel — so
-    // the link's news goes to both pairing widgets.
-    this.phone.on('status', (text, kind) => {
-      for (const pairing of this._pairings) pairing.setStatus(text, kind);
-    });
+    // way, and the panel's preview follows the tracker's video element.
+    this.phone.on('status', (text, kind) => this.hud.camera.phone.setStatus(text, kind));
     this.phone.on('stream', async (stream) => {
-      for (const pairing of this._pairings) pairing.setLive(true);
-      this.hud.ar.setSource(this._arSource, { phoneLive: true });
-      // The tracker first, when the phone is its camera; then the hands, in
-      // camera mode, unless AR mode has them on the webcam instead.
-      if (this.arMode && this._arSource === 'phone') {
-        await this.ar.attach(stream);
-        this._sendViewToPhone(true);
-      }
+      this.hud.camera.phone.setLive(true);
       if (!this.cameraMode) return;
-      if (this.arMode && this._arSource === 'phone' && this._arHands !== 'ar') return;
       if (!(await this.hands.setStream(stream))) return;
       this.hud.camera.attach(this.hands.video);
-      await this._routeARHands();
       this.hud.showToast('Phone camera connected — open your palm to engage');
     });
     this.phone.on('ended', async () => {
-      for (const pairing of this._pairings) pairing.setLive(false);
-      if (this.arMode && this._arSource === 'phone') {
-        this.ar.detach();
-        this._arSource = '';
-        this.hud.ar.setSource('', { phoneLive: false });
-        this.hud.ar.setStatus('The phone went away — pair it again, or use the webcam', 'warn');
-      }
+      this.hud.camera.phone.setLive(false);
       if (!this.cameraMode) return;
       this.hud.camera.setStatus('Phone gone — back to the webcam…');
       if (await this.hands.useLocalCamera()) {
         this.hud.camera.attach(this.hands.video);
-        this.hands.setPointerMap(null);
-        this.hud.camera.setMirrored(true);
         this.hud.showToast('Back on the webcam');
       }
     });
-    this.hud.camera.phone.onOpen = () => this._pairPhone(this.hud.camera.phone);
+    this.hud.camera.phone.onOpen = () => this._pairPhone();
     this.hud.camera.phone.onClose = () => this._unpairPhone();
     this.hud.camera.phone.onNextUrl = () => this.phone.nextUrl();
-
-    // AR mode. The panel fires intents; the session reports back.
-    const ar = this.hud.ar;
-    ar.onSource = (kind) => this._setARSource(kind);
-    ar.onFreeze = () => this._arFreeze();
-    ar.onLock = (corners, aspect) => this._arLock(corners, aspect);
-    ar.onUnlock = () => {
-      this.ar.unlock();
-      ar.setStatus('Unlocked — freeze a frame to place the stage again', 'info');
-    };
-    ar.onSpan = (span) => {
-      this.ar.stageSpan = span;
-    };
-    ar.onFov = (hfov) => this.ar.setManualHfov(hfov);
-    ar.onHands = (kind) => this._setARHands(kind);
-    ar.onPrintMat = () => {
-      if (!openPrintableMat()) this.hud.showToast('The browser blocked the print window — allow pop-ups for this page');
-    };
-    ar.phone.onOpen = () => this._setARSource('phone');
-    ar.phone.onClose = () => this._unpairPhone();
-    ar.phone.onNextUrl = () => this.phone.nextUrl();
-    this.ar.on('status', (text, kind) => ar.setStatus(text, kind));
-    this.ar.on('video', (width, height) => {
-      if (width) ar.setStatus(`Camera ${width}×${height} — freeze a frame with the rectangle in view`, 'info');
-    });
-
-    // The phone placing the stage itself. Its frozen frame and corners lock
-    // the tracker here; its handles are mirrored on the panel as they move.
-    // A placement arriving with AR mode off turns it on — the phone drives.
-    this.phone.on('plane', async ({ corners, aspect, image }) => {
-      if (!this.arMode) await this._toggleAR();
-      if (this._arSource !== 'phone') await this._setARSource('phone');
-      if (!this.ar.attached) {
-        ar.setStatus('The phone placed the stage before its video arrived — tap Place again', 'warn');
-        return;
-      }
-      ar.endPlacement();
-      ar.setRemoteCorners(null);
-      ar.setAspect(aspect);
-      if (!(await this.ar.lockFromImage(image, corners, aspect))) {
-        ar.setStatus('Could not lock on the phone\u2019s placement', 'error');
-        return;
-      }
-      this.hud.showToast('Stage placed from the phone');
-    });
-    this.phone.on('corners', (corners) => {
-      if (this.arMode && this._arSource === 'phone') ar.setRemoteCorners(corners);
-    });
-    this.phone.on('unplace', () => {
-      if (!this.arMode) return;
-      this.ar.unlock();
-      ar.setRemoteCorners(null);
-      ar.setStatus('The phone took the stage away — place it again from there', 'info');
-    });
 
     this.hud.onAbility = (element) => this.armAbility(element);
     this.hud.onCastle = () => this._toggleCastle();
@@ -422,9 +327,6 @@ export class App {
         break;
       case 'toggleCamera':
         this._toggleCamera();
-        break;
-      case 'toggleAR':
-        this._toggleAR();
         break;
       case 'toggleCastle':
         this._toggleCastle();
@@ -739,32 +641,18 @@ export class App {
     this.hud.setCameraVisible(true);
     this.hud.camera.setStatus('Starting camera…');
 
-    // In AR mode the hands may belong on the AR camera rather than the
-    // webcam; the tracker is up either way, so the routing is one call.
-    if (this.arMode && this._arHands === 'ar' && this.ar.stream) {
-      if (!(await this.hands.start(this.ar.stream))) return;
-      await this._routeARHands();
-    } else if (!(await this.hands.start())) {
-      return;
-    }
+    if (!(await this.hands.start())) return;
     this.hud.camera.attach(this.hands.video);
     this.hud.showToast('Open your palm to engage');
-  }
-
-  /** Both places the phone can be paired from. */
-  get _pairings() {
-    return [this.hud.camera.phone, this.hud.ar.phone];
   }
 
   /**
    * Put the phone's QR code up — or, when the relay cannot be used from a
    * phone, the line that says why. Idempotent: the no-webcam path calls it
    * every time the webcam fails, and the button calls it on a whim.
-   *
-   * @param {import('../ui/PhonePairing.js').PhonePairing} [pairing] which
-   *   panel's widget shows the code
    */
-  async _pairPhone(pairing = this.hud.camera.phone) {
+  async _pairPhone() {
+    const pairing = this.hud.camera.phone;
     if (!this.phone.info) await this.phone.probe();
     if (!this.phone.available) {
       pairing.showUnavailable();
@@ -785,213 +673,9 @@ export class App {
     // Closing a live link emits `ended`, and that handler brings the webcam
     // back; only the idle case has to ask for it here.
     this.phone.close();
-    for (const pairing of this._pairings) pairing.reset();
+    this.hud.camera.phone.reset();
     if (wasLive || !this.cameraMode || this.hands.ready) return;
     if (await this.hands.useLocalCamera()) this.hud.camera.attach(this.hands.video);
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* AR mode                                                             */
-  /* ------------------------------------------------------------------ */
-
-  /**
-   * Turn AR mode on or off.
-   *
-   * On: the backdrop, the fog and the stone floor stand down (the camera
-   * frame is the backdrop, the real table is the floor, and it keeps the
-   * shadows), the orbit rig lets go of the camera, and the panel takes the
-   * presenter through camera → freeze → corners → lock. A camera that is
-   * already open — the phone, or the webcam the hands are on — is taken as
-   * the first choice, so the common case is one keypress and a drag.
-   */
-  async _toggleAR() {
-    if (this.arMode) {
-      this.arMode = false;
-      this.phone.arHint = false;
-      this.hud.setARVisible(false);
-      this.post.setVideo(null);
-      this.environment.setAR(false);
-      this.ground.setShadowCatcher(false);
-      this.hall.setAR(false);
-      this.rig.controls.enabled = true;
-      this.camera.near = this._arSavedClip.near;
-      this.camera.far = this._arSavedClip.far;
-      const size = this.renderer.size;
-      this.rig.resize(size.width, size.height);
-      this.hands.setPointerMap(null);
-      this.hud.camera.setMirrored(true);
-      this.hud.ar.setRemoteCorners(null);
-
-      // The phone goes back to being a plain camera, and stops getting the view.
-      this._sendViewToPhone(false);
-      if (this.phone.live) this.phone.requestMode({ ar: false });
-
-      this.ar.detach();
-      if (this._arWebcam) {
-        const owned = this._arWebcam;
-        this._arWebcam = null;
-        const handsOnIt = this.cameraMode && this.hands.stream === owned;
-        owned.getTracks().forEach((track) => track.stop());
-        // The hands may have been reading the very stream that just stopped.
-        if (handsOnIt && (await this.hands.useLocalCamera())) this.hud.camera.attach(this.hands.video);
-      }
-      this._arSource = '';
-      this.editor.setHidden(this._arEditorWasHidden);
-      this.hud.showToast('AR mode off');
-      return;
-    }
-
-    this.arMode = true;
-    this._arEditorWasHidden = this.editor.hidden;
-    this.editor.setHidden(true);
-    this.hud.setARVisible(true);
-    this.environment.setAR(true);
-    this.ground.setShadowCatcher(true);
-    this.hall.setAR(true);
-    this.rig.controls.enabled = false;
-    this.aim.cancel();
-    // The camera now stands tens of metres out in game units — a phone half
-    // a metre over a sheet that spans sixteen — so the clip planes follow.
-    this._arSavedClip.near = this.camera.near;
-    this._arSavedClip.far = this.camera.far;
-    this.camera.near = 0.5;
-    this.camera.far = 1500;
-    this.hud.ar.setHands(this._arHands);
-    this.hud.ar.setSource('', { phoneLive: this.phone.live });
-    this.hud.ar.setStatus('Pick the camera that looks at the table', 'info');
-    this.hud.showToast('AR mode — pick a camera, freeze, drag the corners, lock');
-
-    if (this.phone.live) await this._setARSource('phone');
-    else if (this.hands.ready && this.hands.stream && this.hands.ownsStream) await this._setARSource('webcam');
-  }
-
-  /**
-   * Choose the tracker's camera.
-   *
-   * The phone: paired from the AR panel if it is not yet, and asked for its
-   * rear camera in HD when it is — a page of print at 640×480 is a page of
-   * mush on a projector. The webcam: shared with the hands when they have
-   * it open, opened for AR alone otherwise.
-   */
-  async _setARSource(kind) {
-    this._arSource = kind;
-    this.hud.ar.setSource(kind, { phoneLive: this.phone.live });
-
-    if (kind === 'phone') {
-      this.phone.arHint = true;
-      if (this.phone.live) {
-        this.hud.ar.phone.reset();
-        await this.ar.attach(this.phone.stream);
-        this.phone.requestMode({ ar: true });
-        this._sendViewToPhone(true);
-        this.hud.ar.setStatus('Phone camera — place the stage on the phone: freeze, drag the corners, place', 'live');
-      } else {
-        await this._pairPhone(this.hud.ar.phone);
-      }
-      return;
-    }
-
-    if (kind === 'webcam') {
-      this.hud.ar.phone.reset();
-      let stream = this.hands.ready && this.hands.ownsStream ? this.hands.stream : this._arWebcam;
-      if (!stream) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'environment' },
-            audio: false
-          });
-          this._arWebcam = stream;
-        } catch (error) {
-          this._arSource = '';
-          this.hud.ar.setSource('', { phoneLive: this.phone.live });
-          this.hud.ar.setStatus(
-            error?.name === 'NotAllowedError' ? 'Webcam permission refused' : 'No webcam found — use the phone',
-            'error'
-          );
-          return;
-        }
-      }
-      await this.ar.attach(stream);
-      this.hud.ar.setStatus('Webcam — point it at the table and freeze a frame', 'live');
-      await this._routeARHands();
-    }
-  }
-
-  /**
-   * The phone looks *through* the stage: the rendered canvas goes back to
-   * it as a video track on the line its offer reserved. Captured once, and
-   * only while AR mode has the phone as its camera.
-   */
-  _sendViewToPhone(on) {
-    if (on) {
-      if (!this._returnStream) {
-        try {
-          this._returnStream = this.canvas.captureStream(30);
-        } catch (error) {
-          console.warn('[ar] could not capture the view for the phone', error);
-          return;
-        }
-      }
-      this.phone.setReturnTrack(this._returnStream.getVideoTracks()[0] ?? null);
-      return;
-    }
-    this.phone.setReturnTrack(null);
-    if (this._returnStream) {
-      this._returnStream.getTracks().forEach((track) => track.stop());
-      this._returnStream = null;
-    }
-  }
-
-  _arFreeze() {
-    if (!this.ar.freeze()) {
-      this.hud.ar.setStatus('No picture yet — pick a camera first', 'warn');
-      return;
-    }
-    this.hud.ar.beginPlacement(this.ar);
-    this.hud.ar.setStatus('Frozen. Drag the four corners onto the rectangle — the loupe shows the exact pixel', 'info');
-  }
-
-  _arLock(corners, aspect) {
-    this.hud.ar.endPlacement();
-    if (!this.ar.lock(corners, aspect)) {
-      this.hud.ar.setStatus('Could not lock — the four corners do not make a rectangle', 'error');
-      return;
-    }
-    this.hud.showToast('Stage locked to the surface');
-  }
-
-  /** Which camera the hands read in AR mode. Applied now if they are up, or when they come up. */
-  async _setARHands(kind) {
-    this._arHands = kind;
-    this.hud.ar.setHands(kind);
-    await this._routeARHands();
-  }
-
-  /**
-   * Put the hands on the camera AR mode says they belong on.
-   *
-   * On the AR camera the pointer is the palm's place *in the frame* — the
-   * arrow sits under the real hand on the real table — and the preview is
-   * shown the way round the main view shows it. On the webcam everything is
-   * as in camera mode.
-   */
-  async _routeARHands() {
-    if (!this.arMode || !this.cameraMode || !this.hands.ready) return;
-    if (this._arHands === 'ar' && this.ar.stream) {
-      if (this.hands.stream !== this.ar.stream) {
-        if (!(await this.hands.setStream(this.ar.stream))) return;
-        this.hud.camera.attach(this.hands.video);
-      }
-      this.hands.setPointerMap((x, y, out) => this.ar.frameToNdc(x, y, out));
-      this.hud.camera.setMirrored(false);
-      this.hud.camera.setStatus('Hands on the AR camera — reach over the table');
-    } else {
-      if (!this.hands.stream || this.hands.stream === this.ar.stream) {
-        if (await this.hands.useLocalCamera()) this.hud.camera.attach(this.hands.video);
-      }
-      this.hands.setPointerMap(null);
-      this.hud.camera.setMirrored(true);
-    }
   }
 
   /* ------------------------------------------------------------------ */
@@ -1074,42 +758,14 @@ export class App {
     /* ---- camera ---- */
     this.shake.update(raw);
     this.flash.update(raw);
-    if (this.arMode) {
-      // The tracker owns the camera: its pose, and a projection matching the
-      // frame's lens and the crop that fits it to the window. Until a plane
-      // is locked the frame is shown alone, whatever the scene is doing.
-      const size = this.renderer.size;
-      this.ar.fitViewport(size.width, size.height);
-      if (this.ar.hasPose) {
-        this.ar.applyCamera(this.camera, size.width, size.height);
-        if (this.rig.shakeOffset.lengthSq() > 0) {
-          this.camera.position.add(this.rig.shakeOffset);
-          this.camera.rotateZ(this.rig.shakeRoll);
-        }
-      }
-      this.post.setVideo(this.ar.videoWidth ? this.ar.texture : null, this.ar.videoScale, !this.ar.hasPose);
-      this.hud.ar.update(this.ar);
-      // The phone's status line, a few times a second.
-      if (this._arSource === 'phone' && this.phone.live && performance.now() - this._stageSentAt > 250) {
-        this._stageSentAt = performance.now();
-        this.phone.sendStage({
-          locked: this.ar.locked,
-          tracking: this.ar.tracking,
-          lost: this.ar.lost,
-          inliers: this.ar.inliers,
-          total: this.ar.total
-        });
-      }
-    } else {
-      const focus = this.abilities.focus;
-      if (focus) this.rig.lookAt(focus.position, focus.cameraWeight);
-      this.rig.setAnchor(this.character.position.x, 0, this.character.position.z);
-      // Steering the view is edge-only, and only while a cast is armed: holding
-      // the hand anywhere in the middle of the frame moves nothing, and letting
-      // the aim go slides the view back over the caster.
-      this.rig.pan(this.aim.isArmed ? this.aim.pointer : null, raw);
-      this.rig.update(raw);
-    }
+    const focus = this.abilities.focus;
+    if (focus) this.rig.lookAt(focus.position, focus.cameraWeight);
+    this.rig.setAnchor(this.character.position.x, 0, this.character.position.z);
+    // Steering the view is edge-only, and only while a cast is armed: holding
+    // the hand anywhere in the middle of the frame moves nothing, and letting
+    // the aim go slides the view back over the caster.
+    this.rig.pan(this.aim.isArmed ? this.aim.pointer : null, raw);
+    this.rig.update(raw);
 
     this.contactShadows.setPosition(this.character.position.x, this.character.position.z);
     this.contactShadows.render(this.scene);
@@ -1143,9 +799,6 @@ export class App {
     this.input.dispose();
     this.hands.dispose();
     this.phone.dispose();
-    this.ar.dispose();
-    this._sendViewToPhone(false);
-    this._arWebcam?.getTracks().forEach((track) => track.stop());
     this.aim.dispose();
     this.abilities.dispose();
     this.particles.dispose();

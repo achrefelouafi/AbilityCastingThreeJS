@@ -117,18 +117,6 @@ export class Environment {
     this._envMap = null;
     this._pmrem = null;
     this._rimDir = new Vector3();
-    this._ar = false;
-  }
-
-  /**
-   * AR mode: the backdrop comes off — a camera frame is composited in
-   * underneath, and the scene has to render over *nothing* for that — and
-   * the fog with it, since its colour is the backdrop's and the camera now
-   * sits tens of metres out where the fog would swallow the stage.
-   */
-  setAR(on) {
-    this._ar = on;
-    this.scene.background = on ? null : this._bgColor;
   }
 
   /**
@@ -225,7 +213,7 @@ export class Environment {
 
     // Attaching / detaching the fog flips the FOG shader define, so the switch
     // costs one recompile — fine for an editor toggle, and free while it stays on.
-    this.scene.fog = env.fogEnabled && !this._ar ? this._fog : null;
+    this.scene.fog = env.fogEnabled ? this._fog : null;
     this._fog.color.copy(getColor(env.fogColor));
     this._fog.near = env.fogNear;
     this._fog.far = env.fogFar;

@@ -103,38 +103,10 @@ export class PostProcessing {
 
     this.gradePass = new ShaderPass(GradeShader);
     this.gradePass.uniforms.uFlashColor.value = new Color(1, 1, 1);
-    this.gradePass.uniforms.uVideoScale.value = new Vector2(1, 1);
     this.gradePass.renderToScreen = true;
     this.composer.addPass(this.gradePass);
 
     this._clearColor = new Color();
-    this._video = false;
-  }
-
-  /**
-   * Put a camera frame under the stage (AR mode), or take it away.
-   *
-   * With a frame on, the scene is rendered over *transparent* black — the
-   * clear alpha goes to zero and the caller has already taken the backdrop
-   * off the scene — so the composite in the grade pass knows where the
-   * stage is and where the table shows through.
-   *
-   * @param {THREE.Texture|null} texture the frame, or null for the backdrop
-   * @param {THREE.Vector2} [scale]    cover-fit crop, see `ARSession#videoScale`
-   * @param {boolean} [only]           show the frame alone, no stage — while
-   *   the rectangle is still being placed
-   */
-  setVideo(texture, scale = null, only = false) {
-    const u = this.gradePass.uniforms;
-    u.tVideo.value = texture;
-    u.uVideoOn.value = texture ? 1 : 0;
-    u.uVideoOnly.value = texture && only ? 1 : 0;
-    if (scale) u.uVideoScale.value.copy(scale);
-    const on = !!texture;
-    if (on !== this._video) {
-      this._video = on;
-      this.gl.setClearColor(0x000000, on ? 0 : 1);
-    }
   }
 
   /** Opaque depth for soft particles. */
@@ -220,7 +192,6 @@ export class PostProcessing {
     // whether there is anything to composite is only known once the scene has
     // been walked.
     this.distortionPass.uniforms.uScale.value = post.enabled ? post.distortion : 0;
-    u.tDistortion.value = this.distortionTarget.texture;
   }
 
   /**
@@ -249,8 +220,6 @@ export class PostProcessing {
 
     this.distortionPass.enabled = hasDistortion;
     if (hasDistortion) this._renderDistortion();
-    // The camera frame under the stage takes the same warp (see GradeShader).
-    this.gradePass.uniforms.uVideoDistortion.value = hasDistortion && this._video ? post.distortion : 0;
 
     // Tone mapping is applied by OutputPass: three automatically disables the
     // in-material tone mapping while rendering into the composer's targets.

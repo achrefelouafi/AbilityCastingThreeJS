@@ -130,9 +130,6 @@ export class InputManager extends EventEmitter {
       case 'KeyM':
         this.emit('action', 'toggleCamera');
         break;
-      case 'KeyN':
-        this.emit('action', 'toggleAR');
-        break;
       case 'KeyJ':
         this.emit('action', 'swapHands');
         break;

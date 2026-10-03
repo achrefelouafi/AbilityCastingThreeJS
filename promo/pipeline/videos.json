@@ -1,0 +1,14 @@
+[
+ {"id":"spells_vol1","vol":"PART 1/3","title":"Which spell <span class=\"hl\">wins?</span> 1, 2 or 3","panels":[
+   {"el":"dragon","name":"Dragonfire Circle","accent":"#ff6a2a","key":"I","tag":"AREA CAST"},
+   {"el":"wolf","name":"Astral Fang","accent":"#5fe8ff","key":"B","tag":"TARGETED CAST"},
+   {"el":"amethyst","name":"Amethyst Verdict","accent":"#c07bff","key":"U","tag":"TARGETED CAST"}]},
+ {"id":"spells_vol2","vol":"PART 2/3","title":"Built with <span class=\"hl\">three.js</span> + GLSL","panels":[
+   {"el":"chains","name":"Chains of Penance","accent":"#ffb547","key":"L","tag":"TARGETED CAST"},
+   {"el":"gyro","name":"Stormheart Gyroscope","accent":"#a77bff","key":"O","tag":"AREA CAST"},
+   {"el":"shark","name":"Abyssal Maw","accent":"#3fd8ff","key":"K","tag":"TARGETED CAST"}]},
+ {"id":"spells_vol3","vol":"PART 3/3","title":"Steal this <span class=\"hl\">code.</span> It's free.","panels":[
+   {"el":"lance","name":"Starbreaker Lance","accent":"#7fe6ff","key":"Y","tag":"TARGETED CAST"},
+   {"el":"tome","name":"Astral Tome","accent":"#4f9dff","key":";","tag":"AREA CAST"},
+   {"el":"reliquary","name":"Wildroot Reliquary","accent":"#3fffd0","key":"'","tag":"TARGETED CAST"}]}
+]

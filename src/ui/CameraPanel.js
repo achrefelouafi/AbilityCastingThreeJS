@@ -141,19 +141,7 @@ export class CameraPanel {
     this._wasEngaged = false;
     this._lostFlashUntil = 0;
 
-    this._mirrored = true;
     this._undrag = makeDraggable(this.element);
-  }
-
-  /**
-   * A webcam preview is mirrored, because an un-mirrored self view is
-   * unusable. AR mode's camera looks at a table, not at the presenter, and
-   * its frame is on the main view *un*-mirrored — so the preview and the
-   * skeleton follow suit, or the little picture disagrees with the big one.
-   */
-  setMirrored(on) {
-    this._mirrored = on;
-    this.element.classList.toggle('is-raw', !on);
   }
 
   setVisible(on) {
@@ -345,12 +333,11 @@ export class CameraPanel {
     const hands = result?.landmarks;
     if (!hands?.length) return;
 
-    const mirrored = this._mirrored;
     for (const landmarks of hands) {
       // Mirrored to match the preview underneath. The frame and this canvas
       // are shaped to the source (`_fitFrame`), so normalised landmarks map
       // straight onto it with nothing cropped away.
-      const px = (p) => (mirrored ? 1 - p.x : p.x) * w;
+      const px = (p) => (1 - p.x) * w;
       const py = (p) => p.y * h;
 
       ctx.lineWidth = 2;

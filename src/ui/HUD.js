@@ -2,7 +2,6 @@ import { ELEMENTS, ELEMENT_META } from '../config/settings.js';
 import { ELEMENT_SIGILS } from './glyphs.js';
 import { CONTACT_MARKUP, ContactCard } from './contact.js';
 import { CAMERA_MARKUP, CameraPanel } from './CameraPanel.js';
-import { AR_MARKUP, ARPanel } from './ARPanel.js';
 
 /**
  * Heads-up display: the ability bar, controls, live stats and toasts.
@@ -62,8 +61,7 @@ export class HUD {
         <div><kbd>M</kbd> camera mode &nbsp; <kbd>J</kbd> swap hands</div>
         <div class="hud__help-note">Camera: palm aims, fist casts, point left/right to swap.</div>
         <div class="hud__help-note">No webcam? The panel can use your phone's camera instead — scan the code (local network only).</div>
-        <div><kbd>N</kbd> AR mode &nbsp; <kbd>\`</kbd> castle on / off</div>
-        <div class="hud__help-note">AR: point a camera at a printed page, drag the corners onto it, lock — the stage stands on it and follows the camera. The arrow sits under your real hand.</div>
+        <div><kbd>\`</kbd> castle on / off</div>
         <div class="hud__help-note">Any cast that reaches a target one-shots it.</div>
         <div class="hud__help-note">The Astral Fang (<strong>B</strong> / <strong>9</strong>, targeted) burns a gold rose under its target and tears a rift open beside it; the rose throws the body up, a wolf of starlight bursts out of the rift, takes it in its jaws and carries it into a second rift, and both implode behind it.</div>
         <div class="hud__help-note">The Abyssal Maw kicks its target up on a spike of rock, and a shark leaps out of one portal, takes it, and drags it down into the other.</div>
@@ -92,7 +90,6 @@ export class HUD {
 
       ${CONTACT_MARKUP}
       ${CAMERA_MARKUP}
-      ${AR_MARKUP}
 
       <div class="hud__toast" data-toast></div>
       <div class="hud__paused" data-paused>Paused</div>
@@ -100,7 +97,6 @@ export class HUD {
 
     this.contact = new ContactCard(root);
     this.camera = new CameraPanel(root);
-    this.ar = new ARPanel(root);
     this.cards = new Map();
     for (const card of root.querySelectorAll('.ability-card')) {
       this.cards.set(card.dataset.element, card);
@@ -179,12 +175,6 @@ export class HUD {
   setCameraVisible(on) {
     this.root.classList.toggle('hud--camera', on);
     this.camera.setVisible(on);
-  }
-
-  /** The AR panel and its placement overlay. */
-  setARVisible(on) {
-    this.root.classList.toggle('hud--ar', on);
-    this.ar.setVisible(on);
   }
 
   /** Play the contact card's entrance once the loading veil is clearing. */

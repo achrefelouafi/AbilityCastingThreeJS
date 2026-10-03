@@ -436,7 +436,6 @@ glass — it is never shown as a visible sky. The stage keeps its flat dark back
 | **C** | Clear all active effects |
 | **T** | Reset the target dummies |
 | **M** | Camera mode — palm aims, fist casts (**J** swaps hands) |
-| **N** | AR mode — the stage anchored to a real rectangle a camera is looking at |
 | **H** | Hide the controls panel |
 
 In camera mode the preview panel carries a **gesture guide** for whatever is in the slot: under
@@ -488,73 +487,6 @@ Two things bite in practice:
   `192.168.` one and offers the others under the code. Windows Firewall may also ask to allow Node
   on private networks the first time; refusing that leaves the phone unable to reach the server.
 
-### AR mode: the stage on a real table
-
-Press **N**, and the stage leaves its dark backdrop for a real surface: a camera looks at a table,
-you drag four corners onto something rectangular and printed lying on it, and the whole sandbox —
-floor, character, targets, every ability — stands on that rectangle and stays there while the
-camera moves. Shadows land on the table. The Glacial Prison freezes it. A bloom halo lights it.
-Heat haze warps it. The dummies are thrown across it. And with the hands on the same camera, the
-aim arrow sits under your real hand as you reach over the table.
-
-The placement always happens **on the camera's own picture**, and there are two cameras to choose
-from:
-
-- **The phone.** Pair it from the AR panel (same QR code, same local-only relay, same
-  `npm run dev:lan` as the camera mode); it opens its **rear camera in HD**. Then the stage is
-  placed *on the phone*: tap **Freeze & place**, drag four thumb-sized handles onto the printed
-  rectangle — a loupe rides above your thumb — and tap **Place the stage**. The phone sends the
-  frozen frame and the corners to the PC, which locks its tracker on exactly that picture; and the
-  PC sends its rendered view *back* on a second video track, so the phone's screen becomes a
-  window onto the stage standing on the table in front of it. **Move the stage** brings the
-  handles back. (The corners are mirrored on the PC's panel as you drag, and its handles work
-  too, for whoever prefers the mouse.)
-- **The webcam.** Point it down at the table. The AR panel's picture *is* the webcam, and the
-  placement is on it: **Freeze**, drag the handles inside the picture (the panel widens, and the
-  loupe follows), **Lock**. The main view shows the stage on that plane.
-
-Under the picture, the dials: the rectangle's **shape** (A4, Letter, square, 16:9, or any ratio —
-only the ratio matters), the stage's **size** (how many game metres the long side stands for; 12
-by default, a 4 cm character on an A4 sheet), the **lens** — the camera's field of view, measured
-from the rectangle itself, since a sheet of known shape seen in perspective pins the focal length
-down, with a slider to override it (a head-on view has no perspective to measure from; tilt the
-camera a little) — and **hands from**, which puts the hand tracking on this camera or the webcam.
-
-The rectangle has to be **printed**: a page of text, a book cover, a mousepad, a magazine. Blank
-paper has four corners and nothing else, and the tracker follows corners. **Print a tracking mat**
-in the panel renders a page designed for it — a dense field of glyphs at every size, with a heavy
-border to put the handles on — and opens the print dialog; print it at 100%, pick the A4 shape.
-
-What the tracking is: a markerless planar tracker in plain JavaScript, in a worker
-([`src/ar/planar.js`](src/ar/planar.js), [`src/ar/tracker.worker.js`](src/ar/tracker.worker.js)).
-Shi–Tomasi corners inside the rectangle, followed frame to frame with pyramidal Lucas–Kanade
-(symmetric gradients, forward–backward checked), a RANSAC homography from their *reference*
-positions, and then the step that makes it hold: every feature is re-registered against a patch of
-the frozen reference frame, warped through the current homography to look as it should now, so
-drift has nothing to accumulate on. A Gauss–Newton refinement on the transfer error finishes the
-frame. Under a hand passing over the sheet the covered features drop out and come back; when the
-sheet leaves the frame entirely, BRIEF descriptors of fresh corners are matched against a bank
-built from the reference at three scales, and the plane is re-acquired without a rescan. The
-homography, the rectangle's aspect ratio and the measured focal length give the camera pose
-([`src/ar/ARSession.js`](src/ar/ARSession.js)); the frame that pose was computed for is the frame
-drawn under the stage, held until the next answer, so the two never disagree by even a frame.
-
-What it is not: the WebXR Device API. iOS Safari has no `immersive-ar` session, and the renderer —
-bloom, distortion, 4096² shadows, the whole editor — belongs on the PC that drives the projector,
-not on a phone. So the phone is a camera and the PC does the seeing.
-
-On the render side, AR mode takes the backdrop and the fog off the scene, turns the stone floor
-into a shadow catcher, renders the stage over *transparent* black, and composites the camera frame
-under it in the grade pass — after tone mapping, because a real table should not be ACES-graded.
-The scene's coverage is in alpha, and bloom adds to that alpha, so a glow lands on the frame as
-light rather than a cut-out; the heat-haze offset is applied to the frame there too.
-
-**Local only, like the phone camera** — the pairing is the same relay. Three things to know on the
-day: hold the phone still (a small tripod, a stack of books) while placing the corners; tilt it a
-little rather than shooting straight down, so the lens can be measured; and the view on the phone
-is the PC's picture on a round trip — camera to PC, tracked, rendered, encoded, back — so it runs
-a beat behind a hand-held move. On a tripod it is simply there.
-
 `range` and `minRange` are per ability, so the indicator's reach changes with the slot you have
 selected. Aiming closer than the selected ability's `minRange` tints it red and refuses the cast;
 set `minRange` to 0 if you would rather cast at your own feet, which is what every far cast ships
@@ -573,8 +505,6 @@ src/
                   GlacialPrisonAbility, ToxicShieldAbility, pooling manager
   animation/      FBX character loading, AnimationMixer, the per-ability cast clips,
                   the procedural cast lunge
-  ar/             AR mode: the planar tracker (planar.js), its worker, the session
-                  that turns a tracked rectangle into a camera pose, the printable mat
   assets/         Procedural crystal geometry, the ribbon strip, the Voronoi shatter
                   plate, the flux funnel, the ice shards, the void's
                   obsidian flake and sprite, the storm's crystal and sprite, the shard's
@@ -596,9 +526,8 @@ src/
   postprocessing/ Composer pipeline, grade shader, distortion shader
   shaders/lib/    Shared GLSL: noise library, common helpers
   phone/          The page the phone opens — its camera, streamed to the desktop
-  ui/             HUD, the camera panel, its gesture guide and the phone pairing, the AR
-                  panel and its corner-placement overlay, lil-gui editor, preset
-                  manager, styles
+  ui/             HUD, the camera panel, its gesture guide and the phone pairing,
+                  lil-gui editor, preset manager, styles
   utils/          Maths, colour cache, pooling, disposal, shader patching
   world/          Environment (stage lighting), floor, dust, contact shadows
   archive/        The retired four-element sandbox — see archive/README.md
@@ -782,9 +711,7 @@ Per frame:
 3. **Composer** — scene → refraction warp → bloom → tone map (ACES) → grade.
 
 The grade pass folds chromatic aberration, lift/gain/contrast/saturation/temperature, vignette,
-film grain and the impact flash into one resample — and, in AR mode, the camera frame under the
-stage: the scene is rendered over transparent black with its coverage in alpha, and the frame is
-composited in here, after tone mapping, warped by the same distortion buffer as the scene.
+film grain and the impact flash into one resample.
 
 Shadows come from a single directional light whose orthographic shadow camera is re-centred on the
 character each frame and fitted to a 52 m box at 4096² (~1.3 cm/texel). The `three/addons` CSM

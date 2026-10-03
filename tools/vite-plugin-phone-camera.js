@@ -37,8 +37,8 @@ const ROLES = new Set(['desktop', 'phone']);
 const QUEUE_CAP = 64;
 /** SSE comment lines keep proxies and idle-timeouts from dropping the stream. */
 const HEARTBEAT_MS = 15000;
-/** The phone's frozen reference frame rides through here as a JPEG data URL. */
-const MAX_BODY = 2 * 1024 * 1024;
+/** Signalling only: an SDP is a few KB, an ICE candidate a few hundred bytes. */
+const MAX_BODY = 256 * 1024;
 
 const other = (role) => (role === 'desktop' ? 'phone' : 'desktop');
 

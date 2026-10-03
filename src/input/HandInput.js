@@ -265,14 +265,6 @@ export class HandInput extends EventEmitter {
     this._smooth = new OneEuroVec2({ minCutoff: 1.1, beta: 0.012 });
     this._pointer = new Vector2();
     this._raw = { x: 0, y: 0 };
-    /**
-     * Palm position (normalised image coordinates) → pointer in NDC. The
-     * default is a webcam's: mirrored, and the middle of the frame stretched
-     * to the whole viewport. AR mode swaps in a map that puts the pointer
-     * *on the hand* in the frame it draws, because there the hand is on
-     * screen and the arrow has to sit under it.
-     */
-    this._pointerMap = HandInput.mirroredReach;
 
     /* Step-hand state. Deliberately no notion of *which* ability is selected —
        the steps are relative and App owns the index, so the hand and the
@@ -305,9 +297,11 @@ export class HandInput extends EventEmitter {
   }
 
   /**
-   * The webcam's pointer map. Both axes flip: the raw camera frame is not
-   * mirrored, so a hand moving to the presenter's right travels towards
-   * smaller x, and image y grows downwards where NDC y grows up.
+   * Palm position (normalised image coordinates) → pointer in NDC, with the
+   * middle of the frame stretched to the whole viewport. Both axes flip: the
+   * raw camera frame is not mirrored, so a hand moving to the presenter's
+   * right travels towards smaller x, and image y grows downwards where NDC y
+   * grows up.
    */
   static mirroredReach(x, y, out) {
     out.set(
@@ -315,11 +309,6 @@ export class HandInput extends EventEmitter {
       Math.max(-1, Math.min(1, (0.5 - y) / REACH))
     );
     return out;
-  }
-
-  /** @param {((x: number, y: number, out: Vector2) => Vector2)|null} map null restores the webcam's */
-  setPointerMap(map) {
-    this._pointerMap = map ?? HandInput.mirroredReach;
   }
 
   /** Whether `stream` is the webcam this opened, as opposed to one handed in. */
@@ -737,7 +726,7 @@ export class HandInput extends EventEmitter {
     /* Aim. --------------------------------------------------------- */
     const step = dt > 0 ? dt : 1 / 60;
     this._smooth.filter(pose.palm.x, pose.palm.y, step, this._raw);
-    this._pointerMap(this._raw.x, this._raw.y, this._pointer);
+    HandInput.mirroredReach(this._raw.x, this._raw.y, this._pointer);
     this._pointer.x = Math.max(-1, Math.min(1, this._pointer.x));
     this._pointer.y = Math.max(-1, Math.min(1, this._pointer.y));
     this.emit('pointer:move', this._pointer);
