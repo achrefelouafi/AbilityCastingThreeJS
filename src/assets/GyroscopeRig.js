@@ -95,12 +95,24 @@ export function buildGyroscopeRig(gltf, { height = 2.2 } = {}) {
   const sz = Math.max(Math.abs(_box.max.z - _core.z), Math.abs(_box.min.z - _core.z));
   const radius = Math.max(sx, sz, measured * 0.4) * scale;
 
+  // The farthest the model reaches from the core — the foot of the stand,
+  // usually. The condensing reveal has to grow past this or part of the brass
+  // is left sitting on its fire band.
+  let extent = 0;
+  for (let i = 0; i < 8; i++) {
+    const x = (i & 1 ? _box.max.x : _box.min.x) - _core.x;
+    const y = (i & 2 ? _box.max.y : _box.min.y) - _core.y;
+    const z = (i & 4 ? _box.max.z : _box.min.z) - _core.z;
+    extent = Math.max(extent, Math.hypot(x, y, z));
+  }
+
   return {
     source,
     spin,
     bones: BONES,
     height,
     radius,
+    extent: extent * scale,
     /** Metres from the core down to the lowest point of the model. */
     below: (_core.y - _box.min.y) * scale
   };

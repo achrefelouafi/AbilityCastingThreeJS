@@ -2002,9 +2002,9 @@ export class Editor {
     R(timing, c, 'departTime', 0.2, 4, 0.01, 'leaving (s)');
 
     const summon = folder.addFolder('1 · The summoning');
-    R(summon, c, 'size', 0.5, 6, 0.05, 'height (m)');
-    R(summon, c, 'hoverHeight', 1, 8, 0.05, 'core height (m)');
-    R(summon, c, 'arriveDrop', 0, 10, 0.05, 'comes down from (m)');
+    R(summon, c, 'size', 0.5, 8, 0.05, 'height (m)');
+    R(summon, c, 'arriveDrop', 0, 10, 0.05, 'condenses this high (m)');
+    R(summon, c, 'landAt', 0.3, 1, 0.01, 'lands at (\u00d7 summoning)');
     R(summon, c, 'departRise', 0, 6, 0.05, 'lifts as it leaves (m)');
     R(summon, c, 'revealWidth', 0.01, 1, 0.01, 'condensing edge (m)');
     R(summon, c, 'revealGlow', 0, 30, 0.1, 'condensing edge glow');

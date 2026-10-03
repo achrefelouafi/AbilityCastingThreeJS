@@ -127,7 +127,7 @@ export class GyroscopeAbility extends Ability {
     const rig = this.ctx.models?.gyro ?? null;
     this.rig = rig;
 
-    // root: the core, in the world. spinner: the slow turn and the sway.
+    // root: the core, in the world. spinner: the slow turn on its stand.
     // body: the model, in rig metres.
     this.root = new Group();
     this.root.name = 'GyroRoot';
@@ -387,6 +387,8 @@ export class GyroscopeAbility extends Ability {
   /** One-shot work on the frame an act begins. */
   _enter(act, c) {
     this.act = act;
+    // The storm opens on a strike, not on a wait.
+    if (act === GyroAct.STORM) this.strikeTimer = 1e3;
     if (act === GyroAct.OVERLOAD) this._overload(c);
     if (act === GyroAct.DEPART) {
       this._castShadows(false);
@@ -492,7 +494,8 @@ export class GyroscopeAbility extends Ability {
     const sp = saturate(t / p.summon1);
     const dp = saturate((t - p.overload1) / Math.max(0.01, p.depart1 - p.overload1));
     const form = Easing.outCubic(saturate((sp - 0.22) / 0.78));
-    const full = this.ringRadius * 1.25 + 0.3;
+    const extent = (this.rig ? this.rig.extent : 2) * this.scaleK;
+    const full = extent + c.revealWidth * 2 + 0.1;
 
     if (this.act === GyroAct.DEPART) {
       this.appear = 1 - Easing.inQuad(dp);
@@ -502,8 +505,8 @@ export class GyroscopeAbility extends Ability {
       this.reveal = full * form;
     }
 
-    // The moment it is whole: a pulse through the floor, a ring of sparks.
-    if (!this.formed && sp >= 1) {
+    // The moment its stand meets the floor: a pulse, dust, a ring of sparks.
+    if (!this.formed && sp >= this._landAt(c)) {
       this.formed = true;
       this._castShadows(true);
       this._formedPulse(c);
@@ -562,25 +565,38 @@ export class GyroscopeAbility extends Ability {
     if (this.act === GyroAct.CHARGE) this.ctx.shake.rumble(c.chargeRumble * charge * g.cameraShake, dt);
   }
 
-  /** Place the body: come down the shaft, hover, bob, turn. */
+  /** When in the summoning the stand reaches the floor, 0..1. */
+  _landAt(c) {
+    return Math.min(1, Math.max(0.3, c.landAt));
+  }
+
+  /** Place the body: hang in the shaft, drop onto the stand, turn. */
   _animate(dt, c) {
     const p = this._plan(c);
     const sp = saturate(this.show / p.summon1);
     const dp = saturate((this.show - p.overload1) / Math.max(0.01, p.depart1 - p.overload1));
     const t = this.age;
 
-    let y = c.hoverHeight + c.arriveDrop * (1 - Easing.outCubic(sp));
+    // A pop as it forms: it overshoots its size and settles.
+    const pop = this.act === GyroAct.SUMMON ? 0.55 + 0.45 * Easing.outBack(saturate((sp - 0.15) / 0.85)) : 1;
+    const strike = 1 + this.kick * 0.04;
+    const scale = this.scaleK * pop * strike;
+    this.body.scale.setScalar(scale);
+
+    // It stands: the core is as high over the floor as the stand holds it, at
+    // whatever size it is this frame, so a strike's kick never lifts its foot.
+    // While it condenses it hangs `arriveDrop` higher, then falls onto it.
+    const stand = (this.rig ? this.rig.below : 1.2) * scale;
+    const land = this._landAt(c);
+    const hang = 0.6 * land;
+    const fall = saturate((sp - hang) / Math.max(0.01, land - hang));
+    let y = stand + c.arriveDrop * (1 - Easing.inCubic(fall));
     if (this.act === GyroAct.DEPART) y += c.departRise * Easing.inQuad(dp);
     const bob = Math.sin(t * c.bobRate * TAU) * c.bobAmplitude * this.appear;
 
     this.root.position.set(this.centre.x, y + bob, this.centre.z);
     this.corePos.copy(this.root.position);
     this.position.copy(this.corePos);
-
-    // A pop as it forms: it overshoots its size and settles.
-    const pop = this.act === GyroAct.SUMMON ? 0.55 + 0.45 * Easing.outBack(saturate((sp - 0.15) / 0.85)) : 1;
-    const strike = 1 + this.kick * 0.04;
-    this.body.scale.setScalar(this.scaleK * pop * strike);
     this.spinner.rotation.set(
       Math.sin(t * 0.7) * c.sway,
       t * c.yawSpeed,
@@ -835,7 +851,7 @@ export class GyroscopeAbility extends Ability {
     this.kick = Math.max(this.kick, 0.5);
   }
 
-  /** It is whole: the floor takes a pulse and a ring of sparks is thrown off it. */
+  /** It lands: the floor takes a pulse, dust is thrown off it, sparks ring out of the core. */
   _formedPulse(c) {
     const g = settings.global;
     const time = frame.uTime.value;
@@ -847,11 +863,18 @@ export class GyroscopeAbility extends Ability {
       colorA: getColor(c.colorSigil),
       colorB: getColor(c.colorArc)
     });
+    this.ctx.decals.spawn(DecalType.CRACK, this.centre, {
+      radius: this.ringRadius * 1.3,
+      life: c.summonTime + c.chargeTime + c.stormTime + c.overloadTime + c.departTime,
+      intensity: 0.7,
+      colorA: getColor(c.colorSigil),
+      colorB: getColor(c.colorGlow)
+    });
     this.ctx.decals.spawn(DecalType.DUSTRING, this.centre, {
       radius: c.zoneRadius * 0.7,
-      life: 1.4,
-      intensity: 0.4,
-      growth: 0.5,
+      life: 1.6,
+      intensity: 0.7,
+      growth: 0.7,
       colorA: getColor('#8a8496'),
       colorB: getColor('#45414f')
     });
@@ -880,6 +903,24 @@ export class GyroscopeAbility extends Ability {
     _emit.life = 0.2;
     _emit.spin = 2;
     this.flashes.emit(1, _emit);
+
+    // The stand's weight: a gout of floor dust thrown out round its foot.
+    const dust = Math.round(18 * g.particleCount);
+    for (let i = 0; i < dust; i++) {
+      const a = Math.random() * TAU;
+      _emit.position.set(this.centre.x + Math.cos(a) * 0.6, 0.1, this.centre.z + Math.sin(a) * 0.6);
+      _emit.direction.set(Math.cos(a), 0.25, Math.sin(a));
+      _emit.radius = 0.15;
+      _emit.speed = 4;
+      _emit.speedVariance = 0.5;
+      _emit.spread = 0.25;
+      _emit.size = 0.6;
+      _emit.sizeVariance = 0.5;
+      _emit.life = 1.3;
+      _emit.lifeVariance = 0.4;
+      _emit.spin = 1;
+      this.smoke.emit(1, _emit);
+    }
     this.pulse = 1;
     this.lightBoost = 30 * g.explosionIntensity;
     this.ctx.shake.add(c.formShake * g.cameraShake, 3, 20);
@@ -934,10 +975,10 @@ export class GyroscopeAbility extends Ability {
     });
     this.ctx.bursts.spawn(BurstMode.STORM, this.corePos, {
       radius: 0.4,
-      endRadius: R * 0.8,
-      life: 0.7,
-      intensity: 1.6 * g.explosionIntensity,
-      opacity: 0.7,
+      endRadius: R * 0.4,
+      life: 0.5,
+      intensity: 1.2 * g.explosionIntensity,
+      opacity: 0.25,
       colorA: getColor(c.colorBolt),
       colorB: getColor(c.colorGlow),
       colorC: getColor(c.colorArc)
@@ -1170,7 +1211,7 @@ export class GyroscopeAbility extends Ability {
       this.column.visible = this.phase !== AbilityPhase.TRAVEL && k > 0.002;
       const r = c.columnRadius;
       this.column.position.set(this.centre.x, 0, this.centre.z);
-      this.column.scale.set(r, c.hoverHeight + c.arriveDrop + 8, r);
+      this.column.scale.set(r, c.size + c.arriveDrop + 9, r);
     }
 
     /* the core */

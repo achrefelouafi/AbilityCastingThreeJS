@@ -2328,19 +2328,19 @@ export const settings = {
     departTime: 1.2, // burning back into the rune
 
     /* --- 1 · the summoning --- */
-    size: 2.3, // metres tall
-    hoverHeight: 3.0, // metres, the core over the floor
-    arriveDrop: 3.2, // metres it comes down the shaft from
-    departRise: 1.2, // metres it lifts as it leaves
+    size: 3.4, // metres tall, stand to crown — it stands on the floor
+    arriveDrop: 2.6, // metres over its stand it condenses at, before it drops
+    landAt: 0.82, // fraction of the summoning at which the stand hits the floor
+    departRise: 0.0, // metres it lifts as it leaves
     revealWidth: 0.22, // metres of violet fire on the condensing front
-    revealGlow: 9.0,
-    revealColor: '#c58bff',
-    columnRadius: 1.5,
+    revealGlow: 4.5,
+    revealColor: '#a46bff',
+    columnRadius: 2.0,
     columnIntensity: 1.1,
     moteRate: 220, // motes/second spiralling in
     moteSize: 0.09,
     moteSwirl: 3.2, // radians/second they turn as they fall in
-    formShake: 0.25,
+    formShake: 0.4, // the stand hitting the floor
     formFlash: 0.06,
 
     /* --- 2 · the construct --- */
@@ -2349,17 +2349,17 @@ export const settings = {
     spinStorm: 1.8, // ...in the storm
     spinDepart: 7.0, // ...as it leaves
     strikeKick: 2.5, // extra spin on each strike
-    yawSpeed: 0.35, // radians/second the whole thing turns
-    sway: 0.06, // radians
-    bobAmplitude: 0.12,
+    yawSpeed: 0.12, // radians/second the whole thing turns on its stand
+    sway: 0.0, // radians — it stands, so none by default
+    bobAmplitude: 0.0,
     bobRate: 0.35,
     rimColor: '#9a6bff',
-    rimStrength: 0.45,
-    rimPower: 2.6,
+    rimStrength: 0.2,
+    rimPower: 3.2,
     gemGlow: 3.0, // how hard the amethyst lights with the charge
 
     /* --- 3 · the core --- */
-    coreSize: 2.6, // metres across, fully charged
+    coreSize: 3.2, // metres across, fully charged
     coreIntensity: 1.6,
     coreRays: 7,
     coreFlicker: 0.35,
@@ -2381,7 +2381,7 @@ export const settings = {
     chainDelay: 0.12, // seconds between links
     idleStrikeRate: 2.4, // floor strikes/second with nobody left to hit
     aimHeight: 0.6, // × body height
-    boltWidth: 0.14, // metres, half-width of the ribbon
+    boltWidth: 0.15, // metres, half-width of the ribbon
     boltCore: 0.16, // the white spine, × the width
     boltJag: 0.2,
     boltArch: 0.12,
@@ -2389,7 +2389,7 @@ export const settings = {
     boltLife: 0.38,
     boltLeader: 0.045, // seconds the leader takes to reach the mark
     boltRestrikes: 3,
-    boltIntensity: 2.6,
+    boltIntensity: 3.0,
     impactSparks: 46,
     strikeShake: 0.22,
     strikeFlash: 0.05,
@@ -2417,7 +2417,7 @@ export const settings = {
     colorSigilGold: '#ffcf7a',
 
     /* --- light --- */
-    lightIntensity: 16.0, // at the core
+    lightIntensity: 11.0, // at the core
     lightRadius: 12.0,
     lightColor: '#a77bff',
     lightGutter: 0.35

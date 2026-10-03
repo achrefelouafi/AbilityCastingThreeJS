@@ -113,6 +113,7 @@ const QUAD_VERTEX = /* glsl */ `
 
 const CORE_FRAGMENT = /* glsl */ `
   #define TAU 6.283185307179586
+  uniform float uTime;
   uniform float uIntensity;
   uniform float uCharge;
   uniform float uRays;
@@ -200,6 +201,7 @@ const SIGIL_VERTEX = /* glsl */ `
 const SIGIL_FRAGMENT = /* glsl */ `
   #define TAU 6.283185307179586
   #define PI 3.141592653589793
+  uniform float uTime;
   uniform float uRadius;
   uniform float uReveal;
   uniform float uCharge;
@@ -340,6 +342,7 @@ const COLUMN_VERTEX = /* glsl */ `
 `;
 
 const COLUMN_FRAGMENT = /* glsl */ `
+  uniform float uTime;
   uniform float uIntensity;
   uniform float uOpacity;
   uniform float uGlobalGlow;
