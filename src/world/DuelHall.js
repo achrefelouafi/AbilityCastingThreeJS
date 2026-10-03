@@ -5,6 +5,7 @@ import {
   InstancedMesh,
   BufferGeometry,
   BufferAttribute,
+  Box3,
   Matrix4,
   Quaternion,
   Vector3,
@@ -112,6 +113,14 @@ export class DuelHall {
 
     const root = gltf.scene;
     root.updateMatrixWorld(true);
+    // The export's cloth top sits 12 mm proud of y = 0 — right where abilities
+    // draw their floor quads (decals, portals), which then z-fight it. Drop the
+    // whole hall so the top of the cloth is the stage plane exactly.
+    const clothNode = root.getObjectByName('DuelCloth');
+    if (clothNode) {
+      root.position.y -= new Box3().setFromObject(clothNode).max.y;
+      root.updateMatrixWorld(true);
+    }
 
     const instanced = { shelf: [], candle: [], flame: [] };
     root.traverse((node) => {

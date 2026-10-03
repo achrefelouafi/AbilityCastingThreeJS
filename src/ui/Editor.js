@@ -1579,6 +1579,9 @@ export class Editor {
     R(shark, c, 'biteSnap', 0.01, 0.5, 0.005, 'jaw takes hold in (s)');
     R(shark, c, 'deathRoll', -3, 3, 0.05, 'death roll (turns)');
     R(shark, c, 'rollTime', 0.05, 2, 0.01, 'roll takes (s)');
+    R(shark, c, 'thrashRoll', 0, 60, 1, 'thrash rock (deg)');
+    R(shark, c, 'thrashRate', 0.5, 5, 0.05, 'thrash rocks / s');
+    R(shark, c, 'thrashTime', 0.1, 2, 0.01, 'thrash dies in (s)');
     R(shark, c, 'dissolveDepth', 0.2, 8, 0.05, 'body taken over (m down)');
     R(shark, c, 'wetness', 0, 1, 0.01, 'wet skin');
     R(shark, c, 'sharkRim', 0, 3, 0.01, 'rim');

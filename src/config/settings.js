@@ -1880,8 +1880,11 @@ export const settings = {
     diveDepth: 6.5, // metres under the far surface it dives to
     diveDrift: 0.35, // metres it carries on past the far portal's centre under water
     socketDepth: 0.08, // how far back into the mouth the body is held, 0 lips → 1 throat
-    deathRoll: 1.0, // turns about its own axis while it carries the body
+    deathRoll: 0.0, // full turns about its own axis while it carries the body (any turn shows its belly)
     rollTime: 0.6, // seconds that roll takes
+    thrashRoll: 28, // degrees it rocks side to side after the bite — stays dorsal-up
+    thrashRate: 2.2, // rocks per second
+    thrashTime: 0.9, // seconds the thrash takes to die away
     biteSnap: 0.07, // seconds the jaw takes to take full hold
     grabJoint: 'Spine', // which joint of the body the jaw holds
     wetness: 1.0, // how glossy the skin is out of the water

@@ -724,6 +724,12 @@ export class SharkAbility extends Ability {
    */
   _path(tau, outP, outV) {
     const P = this._plan;
+    if (tau < 0) {
+      // Before its run: already coming up the well at the speed it starts with.
+      outP.copy(P.P0).addScaledVector(P.V0, tau);
+      outV.copy(P.V0);
+      return;
+    }
     if (tau < P.te) {
       hermite(P.P0, P.V0, P.A, P.V1, P.te, Math.max(0, tau) / P.te, outP, outV);
       return;
@@ -735,7 +741,42 @@ export class SharkAbility extends Ability {
       return;
     }
     const td = tau - P.te - P.tf;
-    hermite(P.B, P.V2, P.P3, P.V3, P.td, Math.min(1, td / P.td), outP, outV);
+    if (td < P.td) {
+      hermite(P.B, P.V2, P.P3, P.V3, P.td, td / P.td, outP, outV);
+      return;
+    }
+    // Past the bottom of the dive: on down into the dark at the speed it got there with.
+    outP.copy(P.P3).addScaledVector(P.V3, td - P.td);
+    outV.copy(P.V3);
+  }
+
+  /**
+   * Where in the clip (0..1) the shark is `tau` seconds into its run.
+   *
+   * It has to pass the bite frame exactly on the bite, but the run before the
+   * bite is far shorter than the run after it, so two straight ramps would
+   * play the clip twice as fast up to the bite and then drop to under half
+   * speed on that frame — a visible lurch. Two cubic segments sharing their
+   * slope at the bite keep the playback rate continuous; the slopes follow
+   * Fritsch–Carlson, so the clip never runs backwards.
+   */
+  _clipAt(tau, tauBite, tEnd) {
+    const t1 = Math.max(1e-3, tauBite);
+    const t2 = Math.max(1e-3, tEnd - tauBite);
+    const r1 = SHARK_BITE_AT / t1;
+    const r2 = (1 - SHARK_BITE_AT) / t2;
+    const mid = (2 * r1 * r2) / (r1 + r2);
+    const m0 = Math.min(3 * r1, Math.max(0, 2 * r1 - mid));
+    const m2 = Math.min(3 * r2, Math.max(0, 2 * r2 - mid));
+    const seg = (x, h, y0, y1, s0, s1) => {
+      const x2 = x * x;
+      const x3 = x2 * x;
+      return (2 * x3 - 3 * x2 + 1) * y0 + (x3 - 2 * x2 + x) * h * s0 + (-2 * x3 + 3 * x2) * y1 + (x3 - x2) * h * s1;
+    };
+    if (tau <= 0) return 0;
+    if (tau >= tEnd) return 1;
+    if (tau < tauBite) return seg(tau / t1, t1, 0, SHARK_BITE_AT, m0, mid);
+    return seg((tau - tauBite) / t2, t2, SHARK_BITE_AT, 1, mid, m2);
   }
 
   /* ------------------------------------------------------------------ */
@@ -1017,7 +1058,12 @@ export class SharkAbility extends Ability {
     const P = this._plan;
     const tau = age - P.sharkStart;
     const tEnd = P.te + P.tf + P.td;
-    if (tau < 0 || tau > tEnd + 0.05) {
+    // Visible a little before its run and after its dive, so it rises out of
+    // and sinks into the well's murk rather than popping in and out in the
+    // open hole; the floor hides it everywhere else.
+    const preRoll = 0.35;
+    const postRoll = Math.max(0.3, P.closeB + Math.max(0.05, c.closeTime) - P.sharkStart - tEnd);
+    if (tau < -preRoll || tau > tEnd + postRoll) {
       this.root.visible = false;
       return;
     }
@@ -1039,7 +1085,15 @@ export class SharkAbility extends Ability {
     _q.setFromRotationMatrix(_m);
     // The death roll, once it has the body.
     const tauBite = P.te + P.tb;
-    const roll = c.deathRoll * TAU * Easing.inOutCubic(saturate((tau - tauBite - 0.05) / Math.max(0.05, c.rollTime)));
+    // A full roll is optional (it turns it belly-up); the default is a thrash —
+    // a few side-to-side rolls of the body that ease in and die away, never
+    // tipping it past `thrashRoll` degrees.
+    const sinceBite = tau - tauBite - 0.03;
+    const turn = c.deathRoll * TAU * Easing.inOutCubic(saturate(sinceBite / Math.max(0.05, c.rollTime)));
+    const thrashLife = Math.max(0.1, c.thrashTime);
+    const thrashEnv = sinceBite > 0 ? smoothstep(0, 0.12, sinceBite) * (1 - smoothstep(0, thrashLife, sinceBite)) : 0;
+    const thrash = (c.thrashRoll * Math.PI) / 180 * thrashEnv * Math.sin(sinceBite * TAU * c.thrashRate);
+    const roll = turn + thrash;
     _roll.setFromAxisAngle(_a.set(0, 0, 1), roll * this.sweep);
     this.root.quaternion.copy(_q).multiply(_roll);
     this.frame.scale.setScalar(this.scaleK);
@@ -1049,9 +1103,7 @@ export class SharkAbility extends Ability {
     if (shark?.breach) {
       const action = shark.breach;
       const duration = action.getClip().duration;
-      let u;
-      if (tau < tauBite) u = SHARK_BITE_AT * (tau / Math.max(1e-3, tauBite));
-      else u = SHARK_BITE_AT + (1 - SHARK_BITE_AT) * ((tau - tauBite) / Math.max(1e-3, tEnd - tauBite));
+      const u = this._clipAt(tau, tauBite, tEnd);
       action.enabled = true;
       action.paused = false;
       action.time = Math.min(duration - 1e-4, Math.max(0, u * duration));
