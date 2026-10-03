@@ -37,7 +37,6 @@ const UV_METRES = 4;
 const _m = new Matrix4();
 const _q = new Quaternion();
 const _p = new Vector3();
-const _s = new Vector3();
 const _axisY = new Vector3(0, 1, 0);
 const _level = new Quaternion();
 const _tilt = new Quaternion();
@@ -707,6 +706,14 @@ uniform float uVelvet;`)
     const [flames] = build(instanced.flame, 'CandleFlames');
     this.candles = candles;
     this.flames = flames;
+    // The halo goes on the flame itself. Each flame node's origin sits at the
+    // foot of its candle and the flame geometry is offset up inside it, so the
+    // node's translation alone would put the glow at the base.
+    this._flameCenter = new Vector3();
+    if (flames) {
+      flames.geometry.computeBoundingBox();
+      flames.geometry.boundingBox.getCenter(this._flameCenter);
+    }
 
     // Per-candle bob state, and each flame's offset from its candle.
     this._candleBase = instanced.candle.map((node) => node.matrixWorld.clone());
@@ -948,9 +955,9 @@ uniform float uVelvet;`)
           _m.multiply(this._flameLocal[i]);
           this.flames.setMatrixAt(i, _m);
           if (this._glowPositions) {
-            _m.decompose(_p, _q, _s);
+            _p.copy(this._flameCenter).applyMatrix4(_m);
             this._glowPositions[i * 3] = _p.x;
-            this._glowPositions[i * 3 + 1] = _p.y + 0.05;
+            this._glowPositions[i * 3 + 1] = _p.y;
             this._glowPositions[i * 3 + 2] = _p.z;
           }
         }
